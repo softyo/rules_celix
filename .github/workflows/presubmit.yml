@@ -1,0 +1,136 @@
+# Copyright 2026 SOFTYONARY SL
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# BCR presubmit checks for rules_celix
+#
+# Validates that the repository is ready for Bazel Central Registry submission.
+# Runs on PRs and can also be triggered manually.
+#
+# See: https://github.com/bazel-contrib/publish-to-bcr
+
+name: BCR presubmit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - MODULE.bazel
+      - .bcr/**
+      - celix/**
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # Verify BCR template files are well-formed and consistent
+  # ------------------------------------------------------------------
+  bcr_templates:
+    name: "BCR template validation"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check metadata.template.json
+        run: |
+          python3 -c "
+import json, sys
+with open('.bcr/metadata.template.json') as f:
+    data = json.load(f)
+required = ['homepage', 'maintainers', 'repository', 'versions']
+missing = [k for k in required if k not in data]
+if missing:
+    print(f'missing required keys: {missing}', file=sys.stderr)
+    sys.exit(1)
+print('metadata.template.json is valid')
+"
+
+      - name: Check source.template.json
+        run: |
+          python3 -c "
+import json, sys
+with open('.bcr/source.template.json') as f:
+    data = json.load(f)
+required = ['strip_prefix', 'url']
+missing = [k for k in required if k not in data]
+if missing:
+    print(f'missing required keys: {missing}', file=sys.stderr)
+    sys.exit(1)
+print('source.template.json is valid')
+"
+
+      - name: Check presubmit.yml.template
+        run: |
+          # Verify the presubmit template has the required structure
+          grep -q 'bcr_test_module' .bcr/presubmit.yml || {
+            echo 'presubmit.yml missing bcr_test_module section'
+            exit 1
+          }
+          echo 'presubmit.yml has required structure'
+
+  # ------------------------------------------------------------------
+  # Compatibility matrix — test against multiple Bazel versions
+  # ------------------------------------------------------------------
+  compatibility:
+    name: "Bazel ${{ matrix.bazel }} on ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        bazel: ["7.x", "8.x"]
+        # macOS compatibility can be added later
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel (${{ matrix.bazel }})
+        uses: bazel-contrib/setup-bazel@0194fa28444557f3fb8d62bc3b8b1c7e52543105 # v0.7.0
+        with:
+          bazel-version: ${{ matrix.bazel }}
+          sync-with-bazelrc: false
+
+      - name: Bazel test
+        run: bazel test //...
+
+  # ------------------------------------------------------------------
+  # Module dependency audit — ensure no duplicate/conflicting deps
+  # ------------------------------------------------------------------
+  module_audit:
+    name: "Module dependency audit"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0194fa28444557f3fb8d62bc3b8d62bc3b8b1c7e52543105 # v0.7.0
+        with:
+          bazel-file: .bazelversion
+          sync-with-bazelrc: false
+
+      - name: Module deps info
+        run: bazel mod deps
+
+      - name: Module graph (sanity check)
+        run: bazel mod graph 2>&1 | head -50
+
+      - name: Ensure MODULE.bazel.lock is present
+        run: test -f MODULE.bazel.lock && echo "MODULE.bazel.lock exists" || { echo "Missing MODULE.bazel.lock"; exit 1; }

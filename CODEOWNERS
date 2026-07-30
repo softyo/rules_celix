@@ -1,0 +1,17 @@
+# CODEOWNERS for rules_celix
+#
+# Each line associates a pattern with one or more owners (GitHub usernames).
+# Owners are automatically requested for review when changes are made.
+
+# Default owners for the entire repository
+* @cmasia
+
+# Bazel rules and providers
+/celix/ @cmasia
+
+# CI and BCR configuration
+.github/ @cmasia
+.bcr/ @cmasia
+
+# Tests
+/tests/ @cmasia

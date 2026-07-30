@@ -1,0 +1,22 @@
+# Force LF line endings for all text files.
+# This prevents Windows CRLF from leaking into the repo.
+* text=auto eol=lf
+
+# Mark Bazel lock file as generated so GitHub's linguist skips it
+# in diffs and language statistics.
+MODULE.bazel.lock linguist-generated=true -diff -merge
+
+# Shell scripts must always use LF, even on Windows.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Batch scripts need CRLF on Windows.
+*.bat text eol=crlf
+
+# Binary files — prevent Git from trying to diff/merge these.
+*.png binary
+*.jpg binary
+*.ico binary
+*.jar binary
+*.zip binary
+*.tar.gz binary

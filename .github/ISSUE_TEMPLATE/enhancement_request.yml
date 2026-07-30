@@ -1,0 +1,45 @@
+name: ✨ Enhancement Request
+description: Suggest a new feature or improvement for rules_celix
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We welcome suggestions to make `rules_celix` better! Please describe the feature you'd like to see.
+
+  - type: textarea
+    id: feature_description
+    attributes:
+      label: Feature Description
+      description: What is the proposed enhancement?
+      placeholder: "Add support for including arbitrary resource files in the bundle zip."
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / Use Case
+      description: Why is this needed? How will it help Celix developers?
+      placeholder: "Currently, I have to manually add config files to the activator library, but they should be top-level resources..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_api
+    attributes:
+      label: Proposed API (Optional)
+      description: If you have a vision for how the rule attribute or macro should look, please share it here.
+      placeholder: |
+        celix_bundle(
+            name = "my_bundle",
+            resources = ["config.xml"],
+        )
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to work on this feature myself.
+          required: false

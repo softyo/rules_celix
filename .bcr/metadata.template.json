@@ -1,0 +1,15 @@
+{
+  "homepage": "https://github.com/softyo/rules_celix",
+  "maintainers": [
+    {
+      "name": "Cyril Masia",
+      "email": "cma@softyo.es",
+      "github": "cmasia"
+    }
+  ],
+  "repository": [
+    "github:softyo/rules_celix"
+  ],
+  "versions": [],
+  "yanked_versions": {}
+}

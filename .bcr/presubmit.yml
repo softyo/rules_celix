@@ -1,0 +1,9 @@
+matrix:
+  bazel: ["7.x", "8.x"]
+bcr_test_module:
+  module_path: "."
+  tasks:
+    run_test:
+      name: "Run tests"
+      test_targets:
+        - "//..."

@@ -1,0 +1,5 @@
+{
+  "integrity": "",
+  "strip_prefix": "rules_celix-{VERSION}",
+  "url": "https://github.com/softyo/rules_celix/releases/download/{TAG}/rules_celix-{TAG}.tar.gz"
+}

@@ -1,0 +1,113 @@
+# Copyright 2026 SOFTYONARY SL
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# CI for rules_celix
+#
+# Runs on every push to main and on pull requests.
+# Jobs:
+#   buildifier  — lint Starlark formatting (fast gate)
+#   build_test  — bazel test //... and bazel build //... on Linux + macOS
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Fast formatting gate — fails early if Starlark is not buildifier-clean
+  # ---------------------------------------------------------------------
+  buildifier:
+    name: "buildifier check"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0194fa28444557f3fb8d62bc3b8b1c7e52543105 # v0.7.0
+        with:
+          bazel-file: .bazelversion
+          sync-with-bazelrc: false
+
+      - name: Run buildifier (check mode)
+        run: bazel run @buildifier_prebuilt//:buildifier -- --mode=check -r .
+
+  # ---------------------------------------------------------------------
+  # Full build + test matrix (Linux + macOS)
+  # ---------------------------------------------------------------------
+  build_test:
+    name: "build & test (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0194fa28444557f3fb8d62bc3b8b1c7e52543105 # v0.7.0
+        with:
+          bazel-file: .bazelversion
+          sync-with-bazelrc: false
+
+      - name: Bazel test
+        run: bazel test //...
+
+      - name: Bazel build all (examples included)
+        run: bazel build //...
+
+      # Optional: verify that examples produce valid .zip bundles
+      - name: Validate example bundles
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          for zip in bazel-bin/examples/**/*.zip; do
+            echo "Validating $zip"
+            unzip -t "$zip" || { echo "Invalid zip: $zip"; exit 1; }
+          done
+
+  # ---------------------------------------------------------------------
+  # Metadata — required for BCR presubmit compatibility
+  # ---------------------------------------------------------------------
+  metadata:
+    name: "module metadata"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify MODULE.bazel version matches expectation
+        run: |
+          version=$(grep '^    version = ' MODULE.bazel | head -1)
+          echo "Module version line: $version"
+
+      - name: Verify .bcr/ templates exist
+        run: |
+          for f in .bcr/metadata.template.json .bcr/source.template.json .bcr/presubmit.yml; do
+            test -f "$f" || { echo "Missing BCR template: $f"; exit 1; }
+          done
+          echo "All BCR templates present."

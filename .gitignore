@@ -1,0 +1,25 @@
+# Bazel output symlinks (hidden dot-prefixed)
+/.bazel-*
+/.bazel-*/
+
+# Bazel user-specific local overrides
+*.bazelrc
+!.bazelversion
+!.bazelrc
+
+# Note: MODULE.bazel.lock is intentionally committed for reproducible builds.
+
+# IDE / editor artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS artifacts
+.DS_Store
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo

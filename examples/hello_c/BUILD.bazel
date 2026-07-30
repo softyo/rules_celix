@@ -1,0 +1,53 @@
+# Copyright 2026 SOFTYONARY SL
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Example BUILD file for a Celix bundle.
+
+This example uses a hypothetical @celix//:framework target as a stand-in.
+To build it in your project, replace this with the actual Celix framework
+dependency appropriate for your build environment (e.g. a prebuilt binary,
+a rules_foreign_cc build, or a cc_library pointing to Celix headers/libs).
+
+NOTE: These targets are tagged "manual" because they require Celix headers.
+Build explicitly with: ./bazelw build //examples/hello_c:hello_bundle
+"""
+
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
+load("//celix:defs.bzl", "celix_bundle")
+
+cc_library(
+    name = "hello_lib",
+    srcs = ["src/hello_activator.c"],
+    tags = ["manual"],
+    deps = [
+        # Replace with your actual Celix framework target, e.g.:
+        # "@celix//:framework"
+        # See README.md for details on obtaining Celix.
+    ],
+)
+
+cc_shared_library(
+    name = "hello_activator",
+    tags = ["manual"],
+    deps = [":hello_lib"],
+)
+
+celix_bundle(
+    name = "hello_bundle",
+    activator = ":hello_activator",
+    bundle_name = "Hello World Bundle",  # optional, defaults to symbolic_name
+    symbolic_name = "org.example.hello",
+    tags = ["manual"],
+    version = "1.0.0",  # optional, defaults to "0.0.0"
+)

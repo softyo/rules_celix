@@ -1,0 +1,5 @@
+# Use hidden symlink prefix (dot-prefixed) for all build-family commands
+build --symlink_prefix=.bazel-
+run --symlink_prefix=.bazel-
+test --symlink_prefix=.bazel-
+coverage --symlink_prefix=.bazel-
