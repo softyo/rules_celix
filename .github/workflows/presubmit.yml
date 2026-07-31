@@ -101,7 +101,7 @@ EOF
         uses: actions/checkout@v4
 
       - name: Set up Bazel (${{ matrix.bazel }})
-        uses: bazel-contrib/setup-bazel@v0.7.0
+        uses: bazel-contrib/setup-bazel@0.7.0
         with:
           bazel-version: ${{ matrix.bazel }}
           sync-with-bazelrc: false
@@ -121,7 +121,7 @@ EOF
         uses: actions/checkout@v4
 
       - name: Set up Bazel
-        uses: bazel-contrib/setup-bazel@v0.7.0
+        uses: bazel-contrib/setup-bazel@0.7.0
         with:
           bazel-file: .bazelversion
           sync-with-bazelrc: false
