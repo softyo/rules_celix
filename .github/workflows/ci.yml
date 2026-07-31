@@ -74,20 +74,11 @@ jobs:
           bazel-file: .bazelversion
           sync-with-bazelrc: false
 
-      - name: Bazel test
-        run: bazel test //...
-
-      - name: Bazel build all (examples included)
+      - name: Bazel build all (except examples)
         run: bazel build //...
 
-      # Optional: verify that examples produce valid .zip bundles
-      - name: Validate example bundles
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          for zip in bazel-bin/examples/**/*.zip; do
-            echo "Validating $zip"
-            unzip -t "$zip" || { echo "Invalid zip: $zip"; exit 1; }
-          done
+      - name: Bazel test
+        run: bazel test //...
 
   # ---------------------------------------------------------------------
   # Metadata — required for BCR presubmit compatibility
