@@ -48,7 +48,7 @@ jobs:
 
       - name: Check metadata.template.json
         run: |
-          python3 -c "
+          python3 << 'EOF'
 import json, sys
 with open('.bcr/metadata.template.json') as f:
     data = json.load(f)
@@ -58,11 +58,11 @@ if missing:
     print(f'missing required keys: {missing}', file=sys.stderr)
     sys.exit(1)
 print('metadata.template.json is valid')
-"
+EOF
 
       - name: Check source.template.json
         run: |
-          python3 -c "
+          python3 << 'EOF'
 import json, sys
 with open('.bcr/source.template.json') as f:
     data = json.load(f)
@@ -72,7 +72,7 @@ if missing:
     print(f'missing required keys: {missing}', file=sys.stderr)
     sys.exit(1)
 print('source.template.json is valid')
-"
+EOF
 
       - name: Check presubmit.yml.template
         run: |
