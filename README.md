@@ -1,7 +1,6 @@
 # rules_celix
 
 [![CI](https://github.com/softyo/rules_celix/actions/workflows/ci.yml/badge.svg)](https://github.com/softyo/rules_celix/actions/workflows/ci.yml)
-[![BCR presubmit](https://github.com/softyo/rules_celix/actions/workflows/presubmit.yml/badge.svg)](https://github.com/softyo/rules_celix/actions/workflows/presubmit.yml)
 
 An OSS Bazel ruleset to support building [Apache Celix](https://celix.apache.org/) bundles and applications.
 
