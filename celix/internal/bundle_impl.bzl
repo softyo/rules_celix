@@ -14,7 +14,7 @@
 
 """Implementation of the celix_bundle rule."""
 
-load("//celix:providers.bzl", "CelixBundleInfo")
+load("//celix:providers.bzl", "CelixBundleInfo", "CelixRuntimeInfo")
 load("//celix/internal:manifest.bzl", "generate_manifest")
 load("//celix/internal:zip.bzl", "create_bundle_zip")
 
@@ -44,7 +44,13 @@ def _get_shared_library_file(library_target):
 def _celix_bundle_impl_fn(ctx):
     library_file = _get_shared_library_file(ctx.attr.activator)
     manifest = generate_manifest(ctx)
-    zip_file = create_bundle_zip(ctx, library_file, manifest, ctx.executable._zip_tool)
+    zip_file = create_bundle_zip(
+        ctx,
+        library_file,
+        manifest.file,
+        manifest.archive_path,
+        ctx.executable._zip_tool,
+    )
 
     bundle_name = ctx.attr.bundle_name if ctx.attr.bundle_name else ctx.attr.symbolic_name
 
@@ -83,6 +89,11 @@ _celix_bundle_rule = rule(
         ),
         "bundle_name": attr.string(
             doc = "OSGi Bundle-Name. Human-readable display name. Defaults to symbolic_name if unset.",
+        ),
+        "celix": attr.label(
+            providers = [CelixRuntimeInfo],
+            default = "//celix:default_runtime",
+            doc = "Celix runtime target defining manifest format and conventions.",
         ),
     },
 )

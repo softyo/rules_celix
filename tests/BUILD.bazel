@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load(":celix_bundle_test.bzl", "celix_bundle_analysis_test_suite")
+load(":celix_runtime_test.bzl", "celix_runtime_analysis_test_suite")
 
 package(default_testonly = True)
 
@@ -20,11 +21,17 @@ celix_bundle_analysis_test_suite(
     name = "celix_bundle_test",
 )
 
+celix_runtime_analysis_test_suite(
+    name = "celix_runtime_test",
+)
+
 test_suite(
     name = "all_tests",
     tests = [
         ":celix_bundle_test_provider",
+        ":celix_runtime_test_provider",
         "//tests/integration:validate_bundle_default_name_test",
         "//tests/integration:validate_bundle_test",
+        "//tests/integration:validate_bundle_v3_json_test",
     ],
 )

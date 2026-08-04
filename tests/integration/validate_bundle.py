@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import sys
 import zipfile
 
@@ -26,16 +27,86 @@ def fail(msg):
     sys.exit(1)
 
 
+def validate_properties_manifest(zf, entries, expected_name, expected_version, expected_bundle_name):
+    """Validate an OSGi properties-style META-INF/MANIFEST.MF."""
+    first = entries[0].filename
+    if first != "META-INF/MANIFEST.MF":
+        fail("First zip entry must be 'META-INF/MANIFEST.MF', got '%s'" % first)
+
+    manifest_text = zf.read("META-INF/MANIFEST.MF").decode("utf-8")
+    headers = {}
+    for line in manifest_text.splitlines():
+        if ":" in line:
+            key, _, value = line.partition(":")
+            headers[key.strip()] = value.strip()
+
+    if headers.get("Manifest-Version") != "1.0":
+        fail("Manifest-Version should be '1.0', got '%s'" % headers.get("Manifest-Version"))
+
+    if headers.get("Bundle-SymbolicName") != expected_name:
+        fail("Bundle-SymbolicName mismatch: expected '%s', got '%s'" %
+             (expected_name, headers.get("Bundle-SymbolicName")))
+
+    if headers.get("Bundle-Version") != expected_version:
+        fail("Bundle-Version mismatch: expected '%s', got '%s'" %
+             (expected_version, headers.get("Bundle-Version")))
+
+    if headers.get("Bundle-Name") != expected_bundle_name:
+        fail("Bundle-Name mismatch: expected '%s', got '%s'" %
+             (expected_bundle_name, headers.get("Bundle-Name")))
+
+
+def validate_json_manifest(zf, entries, expected_name, expected_version, expected_bundle_name):
+    """Validate a Celix 3.x JSON-style META-INF/MANIFEST.json."""
+    first = entries[0].filename
+    if first != "META-INF/MANIFEST.json":
+        fail("First zip entry must be 'META-INF/MANIFEST.json', got '%s'" % first)
+
+    manifest_text = zf.read("META-INF/MANIFEST.json").decode("utf-8")
+    try:
+        data = json.loads(manifest_text)
+    except json.JSONDecodeError as e:
+        fail("Invalid JSON manifest: %s" % e)
+
+    if data.get("CELIX_BUNDLE_SYMBOLIC_NAME") != expected_name:
+        fail("CELIX_BUNDLE_SYMBOLIC_NAME mismatch: expected '%s', got '%s'" %
+             (expected_name, data.get("CELIX_BUNDLE_SYMBOLIC_NAME")))
+
+    if data.get("CELIX_BUNDLE_VERSION") != expected_version:
+        fail("CELIX_BUNDLE_VERSION mismatch: expected '%s', got '%s'" %
+             (expected_version, data.get("CELIX_BUNDLE_VERSION")))
+
+    if data.get("CELIX_BUNDLE_NAME") != expected_bundle_name:
+        fail("CELIX_BUNDLE_NAME mismatch: expected '%s', got '%s'" %
+             (expected_bundle_name, data.get("CELIX_BUNDLE_NAME")))
+
+    if "CELIX_BUNDLE_MANIFEST_VERSION" not in data:
+        fail("Missing CELIX_BUNDLE_MANIFEST_VERSION in JSON manifest")
+
+
 def main():
-    if len(sys.argv) < 4:
-        fail("Usage: validate_bundle.py <bundle.zip> <expected_symbolic_name> <expected_version> [<expected_bundle_name>]")
+    if len(sys.argv) < 5:
+        fail(
+            "Usage: validate_bundle.py <bundle.zip> <expected_symbolic_name> "
+            "<expected_version> --format <properties|json> [<expected_bundle_name>]"
+        )
 
     bundle_path = sys.argv[1]
     expected_name = sys.argv[2]
     expected_version = sys.argv[3]
-    # Join any remaining arguments to reconstruct a potentially multi-word bundle name
-    # that may have been split during argument passing (e.g. by shell word-splitting).
-    expected_bundle_name = " ".join(sys.argv[4:]) if len(sys.argv) > 4 else expected_name
+
+    # Parse --format flag and optional bundle name from remaining args.
+    fmt = "properties"  # default
+    remaining = sys.argv[4:]
+    if "--format" in remaining:
+        idx = remaining.index("--format")
+        fmt = remaining[idx + 1] if idx + 1 < len(remaining) else fmt
+        remaining = remaining[:idx] + remaining[idx + 2:]
+
+    if fmt not in ("properties", "json"):
+        fail("Unknown format '%s'. Expected 'properties' or 'json'." % fmt)
+
+    expected_bundle_name = " ".join(remaining) if remaining else expected_name
 
     # 1. Validate it's a valid zip.
     try:
@@ -47,14 +118,9 @@ def main():
         entries = zf.infolist()
 
         if len(entries) < 2:
-            fail("Expected at least 2 entries (MANIFEST.MF + library), got %d" % len(entries))
+            fail("Expected at least 2 entries (manifest + library), got %d" % len(entries))
 
-        # 2. First entry MUST be META-INF/MANIFEST.MF (Celix requirement).
-        first = entries[0].filename
-        if first != "META-INF/MANIFEST.MF":
-            fail("First zip entry must be 'META-INF/MANIFEST.MF', got '%s'" % first)
-
-        # 3. Verify all entries use the deterministic ZIP epoch.
+        # 2. Verify all entries use the deterministic ZIP epoch.
         for entry in entries:
             if entry.date_time != ZIP_EPOCH:
                 fail(
@@ -63,35 +129,18 @@ def main():
                     (entry.filename, entry.date_time, ZIP_EPOCH)
                 )
 
-        # 4. Parse manifest content and verify headers.
-        manifest_text = zf.read("META-INF/MANIFEST.MF").decode("utf-8")
-        headers = {}
-        for line in manifest_text.splitlines():
-            if ":" in line:
-                key, _, value = line.partition(":")
-                headers[key.strip()] = value.strip()
+        # 3. Validate manifest content by format.
+        if fmt == "json":
+            validate_json_manifest(zf, entries, expected_name, expected_version, expected_bundle_name)
+        else:
+            validate_properties_manifest(zf, entries, expected_name, expected_version, expected_bundle_name)
 
-        if headers.get("Manifest-Version") != "1.0":
-            fail("Manifest-Version should be '1.0', got '%s'" % headers.get("Manifest-Version"))
-
-        if headers.get("Bundle-SymbolicName") != expected_name:
-            fail("Bundle-SymbolicName mismatch: expected '%s', got '%s'" %
-                 (expected_name, headers.get("Bundle-SymbolicName")))
-
-        if headers.get("Bundle-Version") != expected_version:
-            fail("Bundle-Version mismatch: expected '%s', got '%s'" %
-                 (expected_version, headers.get("Bundle-Version")))
-
-        if headers.get("Bundle-Name") != expected_bundle_name:
-            fail("Bundle-Name mismatch: expected '%s', got '%s'" %
-                 (expected_bundle_name, headers.get("Bundle-Name")))
-
-        # 5. Check library entry exists with a valid shared library extension.
+        # 4. Check library entry exists with a valid shared library extension.
         lib_entry = entries[1].filename
         if not lib_entry.endswith((".so", ".dylib", ".dll")):
             fail("Second entry should be a shared library, got '%s'" % lib_entry)
 
-        # 6. Sanity check: the library name should follow the lib*.so convention.
+        # 5. Sanity check: the library name should follow the lib*.so convention.
         if not (lib_entry.startswith("lib") and any(lib_entry.endswith(ext) for ext in (".so", ".dylib", ".dll"))):
             print("WARNING: library entry '%s' doesn't follow expected naming convention" % lib_entry,
                   file=sys.stderr)
@@ -99,7 +148,7 @@ def main():
     finally:
         zf.close()
 
-    print("PASS: Bundle zip is valid, manifest correct, entries ordered correctly, timestamps deterministic.")
+    print("PASS: Bundle zip is valid, manifest (%s) correct, entries ordered correctly, timestamps deterministic." % fmt)
 
 
 if __name__ == "__main__":

@@ -25,3 +25,11 @@ CelixBundleInfo = provider(
         "activator": "File: the underlying cc_shared_library .so/.dylib.",
     },
 )
+
+# Provider that describes the targeted Celix runtime version and conventions.
+CelixRuntimeInfo = provider(
+    doc = "Describes a Celix runtime version and its bundle manifest conventions.",
+    fields = {
+        "celix_version": "string: Semantic version of the targeted Celix runtime, e.g. '2.4.0' or '3.0.0'.",
+    },
+)

@@ -20,7 +20,10 @@ Load this file to access all user-facing rules and macros:
 """
 
 load(":bundle.bzl", _celix_bundle = "celix_bundle")
-load(":providers.bzl", _celix_bundle_info = "CelixBundleInfo")
+load(":providers.bzl", _CelixBundleInfo = "CelixBundleInfo", _CelixRuntimeInfo = "CelixRuntimeInfo")
+load(":runtime.bzl", _celix_runtime = "celix_runtime")
 
 celix_bundle = _celix_bundle
-CelixBundleInfo = _celix_bundle_info
+CelixBundleInfo = _CelixBundleInfo
+CelixRuntimeInfo = _CelixRuntimeInfo
+celix_runtime = _celix_runtime

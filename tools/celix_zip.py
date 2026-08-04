@@ -14,7 +14,7 @@
 
 """Hermetic zip packaging tool for Celix bundles.
 
-Creates a deterministic .zip archive with MANIFEST.MF as the first entry,
+Creates a deterministic .zip archive with the manifest as the first entry,
 following Apache Celix bundle conventions.
 
 Why not rules_pkg?
@@ -22,7 +22,7 @@ Why not rules_pkg?
 rules_pkg's pkg_zip is the standard Bazel way to create zip archives, and it
 already handles deterministic timestamps.  However, pkg_zip sorts entries
 alphabetically by destination path (see _load_manifest in build_zip.py).
-Celix requires META-INF/MANIFEST.MF to be the *first* entry in the zip.
+Celix requires the manifest to be the *first* entry in the zip.
 Since "M" sorts after "l" (for "lib*.so"), pkg_zip would place the library
 before the manifest, producing an invalid Celix bundle.
 
@@ -32,7 +32,7 @@ used (315532800 = 1980-01-01) is the same ZIP epoch used by rules_pkg and
 the broader reproducible-builds community.
 
 Usage:
-    celix_zip.py <manifest_path> <library_path> <output_zip_path>
+    celix_zip.py <manifest_path> <library_path> <output_zip_path> <manifest_archive_path>
 """
 
 import os
@@ -73,14 +73,16 @@ def _add_file(zf, file_path, archive_path, permissions):
 
 
 def main():
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         die(
-            "Usage: celix_zip.py <manifest_path> <library_path> <output_zip_path>"
+            "Usage: celix_zip.py <manifest_path> <library_path> "
+            "<output_zip_path> <manifest_archive_path>"
         )
 
     manifest_path = sys.argv[1]
     library_path = sys.argv[2]
     output_zip_path = sys.argv[3]
+    manifest_archive_path = sys.argv[4]  # e.g. "META-INF/MANIFEST.MF" or "META-INF/MANIFEST.json"
 
     # Validate inputs exist
     if not os.path.isfile(manifest_path):
@@ -90,10 +92,10 @@ def main():
 
     try:
         with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            # Celix requires META-INF/MANIFEST.MF to be the first entry.
+            # Celix requires the manifest to be the first entry.
             # zipfile.ZipFile writes entries in order of addition, so this
             # deterministic ordering is guaranteed.
-            _add_file(zf, manifest_path, "META-INF/MANIFEST.MF", 0o644)
+            _add_file(zf, manifest_path, manifest_archive_path, 0o644)
 
             # Use os.path.basename to handle both Unix and Windows paths.
             library_name = os.path.basename(library_path)

@@ -120,22 +120,51 @@ You can install the resulting zip into a Celix container (built with Celix’s C
 A Celix bundle zip with at least:
 
 ```
-META-INF/MANIFEST.MF
+META-INF/MANIFEST.MF        (Celix 1.x / 2.x — OSGi properties)
+  or
+META-INF/MANIFEST.json      (Celix 3.x — JSON format)
 libhello_activator.so   (or .dylib)
 [optional private libraries]
 [optional resources]
 ```
 
-The manifest contains the usual OSGi-style headers (`Bundle-SymbolicName`, `Bundle-Version`, activator / private-library entries, etc.). The packaging step ensures `META-INF/MANIFEST.MF` is the first entry in the zip (Celix prefers this).
+The manifest format is determined by the Celix runtime version targeted by the `celix` attribute:
+
+* **Celix 1.x / 2.x** (default): `META-INF/MANIFEST.MF` with OSGi-style headers (`Bundle-SymbolicName`, `Bundle-Version`, etc.).
+* **Celix 3.x**: `META-INF/MANIFEST.json` with `CELIX_BUNDLE_*` headers (`CELIX_BUNDLE_SYMBOLIC_NAME`, `CELIX_BUNDLE_VERSION`, etc.).
+
+The packaging step ensures the manifest is the first entry in the zip (Celix requires this).
 
 ## Public API (current)
 
 | Target / symbol       | Description                                      |
 |-----------------------|--------------------------------------------------|
 | `celix_bundle`        | Core rule / macro that builds a bundle zip       |
+| `celix_runtime`       | Declares a Celix runtime version contract        |
 | `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, and activator |
+| `CelixRuntimeInfo`    | Provider carrying the targeted Celix runtime version |
 
 See [`celix/defs.bzl`](celix/defs.bzl) for the authoritative surface. Additional helpers (`celix_container`, richer macros) are planned.
+
+### Targeting Celix 3.x
+
+By default, `celix_bundle` targets the Celix 2.x runtime (`//celix:default_runtime`) and produces OSGi properties-style manifests. To target Celix 3.x with JSON manifests:
+
+```python
+load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_runtime")
+
+celix_runtime(
+    name = "celix_v3",
+    celix_version = "3.0.0",
+)
+
+celix_bundle(
+    name = "my_bundle",
+    activator = ":my_lib",
+    symbolic_name = "com.example.my",
+    celix = ":celix_v3",
+)
+```
 
 ## Project layout
 
@@ -145,6 +174,7 @@ rules_celix/
 ├── celix/                  # public rules & providers
 │   ├── defs.bzl
 │   ├── bundle.bzl
+│   ├── runtime.bzl
 │   ├── providers.bzl
 │   └── internal/
 ├── examples/               # runnable samples

@@ -43,6 +43,7 @@ rules_celix/
 │   ├── BUILD.bazel
 │   ├── defs.bzl              # re-exports (load this from user BUILD files)
 │   ├── bundle.bzl            # celix_bundle rule / macro entry point
+│   ├── runtime.bzl           # Celix runtime version contract
 │   ├── providers.bzl         # CelixBundleInfo and related providers
 │   └── internal/             # implementation details — do not load from outside
 │       ├── bundle_impl.bzl

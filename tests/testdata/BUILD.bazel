@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
-load("@rules_celix//celix:defs.bzl", "celix_bundle")
+load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_runtime")
 
 package(
     default_testonly = True,
@@ -43,4 +43,18 @@ celix_bundle(
     name = "test_bundle_default_version",
     activator = ":dummy_lib",
     symbolic_name = "com.example.test_default",
+)
+
+celix_runtime(
+    name = "celix_v3",
+    celix_version = "3.0.0",
+)
+
+celix_bundle(
+    name = "test_bundle_v3",
+    activator = ":dummy_lib",
+    bundle_name = "Test Bundle V3",
+    celix = ":celix_v3",
+    symbolic_name = "com.example.test_v3",
+    version = "1.2.3",
 )

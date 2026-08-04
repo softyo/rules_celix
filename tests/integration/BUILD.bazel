@@ -24,6 +24,8 @@ py_test(
         "$(rootpath //tests/testdata:test_bundle)",
         "com.example.test",
         "1.2.3",
+        "--format",
+        "properties",
         "My Test Bundle",
     ],
     data = [
@@ -39,9 +41,28 @@ py_test(
         "$(rootpath //tests/testdata:test_bundle_default_version)",
         "com.example.test_default",
         "0.0.0",
+        "--format",
+        "properties",
     ],
     data = [
         "//tests/testdata:test_bundle_default_version",
+    ],
+    main = "validate_bundle.py",
+)
+
+py_test(
+    name = "validate_bundle_v3_json_test",
+    srcs = ["validate_bundle.py"],
+    args = [
+        "$(rootpath //tests/testdata:test_bundle_v3)",
+        "com.example.test_v3",
+        "1.2.3",
+        "--format",
+        "json",
+        "Test Bundle V3",
+    ],
+    data = [
+        "//tests/testdata:test_bundle_v3",
     ],
     main = "validate_bundle.py",
 )

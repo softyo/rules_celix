@@ -14,19 +14,20 @@
 
 """Zip assembly helpers for Celix bundle packaging."""
 
-def create_bundle_zip(ctx, library, manifest, zip_tool):
-    """Create the final bundle zip with MANIFEST.MF as the first entry.
+def create_bundle_zip(ctx, library, manifest, manifest_archive_path, zip_tool):
+    """Create the final bundle zip with the manifest as the first entry.
 
     Uses a hermetic py_binary tool (//tools:celix_zip) so the packaging step
     is fully hermetic and does not depend on system Python or fragile
     toolchain resolution.  The zip layout follows Celix conventions:
-        META-INF/MANIFEST.MF
+        META-INF/MANIFEST.MF  (or META-INF/MANIFEST.json for Celix 3.x)
         <library basename>
 
     Args:
         ctx: Rule context.
         library: File: the shared library to include.
-        manifest: File: the generated MANIFEST.MF.
+        manifest: File: the generated manifest file.
+        manifest_archive_path: string: path inside the zip for the manifest.
         zip_tool: File: the resolved //tools:celix_zip py3_binary.
 
     Returns:
@@ -42,6 +43,7 @@ def create_bundle_zip(ctx, library, manifest, zip_tool):
             manifest.path,
             library.path,
             zip_file.path,
+            manifest_archive_path,
         ],
         mnemonic = "CelixBundleZip",
         progress_message = "Packaging Celix bundle %{output}",

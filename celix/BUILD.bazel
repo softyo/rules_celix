@@ -18,13 +18,26 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@stardoc//stardoc:stardoc.bzl", "stardoc")
+load(":runtime.bzl", "celix_runtime")
 
 package(default_visibility = ["//visibility:public"])
+
+celix_runtime(
+    name = "default_runtime",
+    celix_version = "2.0.0",
+    visibility = ["//visibility:public"],
+)
 
 # Required by stardoc for transitive .bzl resolution.
 bzl_library(
     name = "providers_bzl",
     srcs = ["providers.bzl"],
+)
+
+bzl_library(
+    name = "runtime_bzl",
+    srcs = ["runtime.bzl"],
+    deps = [":providers_bzl"],
 )
 
 bzl_library(
@@ -40,6 +53,8 @@ stardoc(
     deps = [
         ":bundle_bzl",
         ":providers_bzl",
+        ":runtime_bzl",
+        "//celix/internal:bundle_impl_bzl",
         "//celix/internal:manifest_bzl",
         "//celix/internal:zip_bzl",
     ],
