@@ -16,6 +16,9 @@
 *.swo
 *~
 
+# Agents
+.kilo/plans
+
 # macOS artifacts
 .DS_Store
 
