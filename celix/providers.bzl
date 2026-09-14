@@ -22,7 +22,9 @@ CelixBundleInfo = provider(
         "symbolic_name": "string: Bundle-SymbolicName from MANIFEST.MF.",
         "bundle_name": "string: Bundle-Name from MANIFEST.MF.",
         "version": "string: Bundle-Version from MANIFEST.MF.",
-        "activator": "File: the underlying cc_shared_library .so/.dylib.",
+        "activator": "File or None: the underlying cc_shared_library .so/.dylib. " +
+                     "None when no_activator = True.",
+        "private_libs": "list of File: private libraries bundled into the bundle zip root.",
     },
 )
 

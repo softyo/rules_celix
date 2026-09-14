@@ -26,9 +26,10 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 
 | Milestone | Status      | Description |
 |-----------|-------------|-------------|
-| **0.1**   | Target      | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Basic tests + one C example. |
-| **0.2**   | Planned     | Convenience macro that also creates the `cc_shared_library` for the user. Support for `private_libs` and `resources`. C++ activator example. |
+| **0.1**   | Target      | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
+| **0.2**   | Planned     | Convenience macro that also creates the `cc_shared_library` for the user. C++ activator example. |
 | **0.3**   | Planned     | Basic `celix_container`-style rule or documented pattern for a runnable launcher that embeds a set of bundles. |
+| **0.4**   | Planned     | Version compatibility tests |
 | **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates. |
 
 ## Repository map

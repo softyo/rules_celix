@@ -28,9 +28,14 @@ celix_runtime_analysis_test_suite(
 test_suite(
     name = "all_tests",
     tests = [
+        ":celix_bundle_test_filename",
+        ":celix_bundle_test_missing_activator",
+        ":celix_bundle_test_no_activator",
         ":celix_bundle_test_provider",
         ":celix_runtime_test_provider",
         "//tests/integration:validate_bundle_default_name_test",
+        "//tests/integration:validate_bundle_full_test",
+        "//tests/integration:validate_bundle_no_activator_test",
         "//tests/integration:validate_bundle_test",
         "//tests/integration:validate_bundle_v3_json_test",
     ],

@@ -32,7 +32,11 @@ used (315532800 = 1980-01-01) is the same ZIP epoch used by rules_pkg and
 the broader reproducible-builds community.
 
 Usage:
-    celix_zip.py <manifest_path> <library_path> <output_zip_path> <manifest_archive_path>
+    celix_zip.py \
+        --manifest <manifest_path> \
+        --manifest-path <manifest_archive_path> \
+        --output <output_zip_path> \
+        [--add <src> --dest <archive_path> --mode <octal_mode>] ...
 """
 
 import os
@@ -49,6 +53,13 @@ def die(msg):
     """Print an error message and exit non-zero."""
     print("ERROR: " + msg, file=sys.stderr)
     sys.exit(1)
+
+
+def _value(args, i, flag):
+    """Return the value following a flag, dying on a missing value."""
+    if i + 1 >= len(args):
+        die("Missing value for %s" % flag)
+    return args[i + 1]
 
 
 def _add_file(zf, file_path, archive_path, permissions):
@@ -72,23 +83,79 @@ def _add_file(zf, file_path, archive_path, permissions):
         zf.writestr(info, fh.read())
 
 
+def _parse_args(args):
+    """Parse the --manifest/--manifest-path/--output and repeated --add flags.
+
+    Returns:
+        tuple (manifest_path, manifest_archive_path, output_zip_path, entries)
+        where entries is a list of (src, dest, mode_int).
+    """
+    manifest_path = None
+    manifest_archive_path = None
+    output_zip_path = None
+    entries = []
+
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--manifest":
+            manifest_path = _value(args, i, a)
+            i += 2
+        elif a == "--manifest-path":
+            manifest_archive_path = _value(args, i, a)
+            i += 2
+        elif a == "--output":
+            output_zip_path = _value(args, i, a)
+            i += 2
+        elif a == "--add":
+            if i + 5 >= len(args) or args[i + 2] != "--dest" or args[i + 4] != "--mode":
+                die("Expected '--add <src> --dest <dest> --mode <mode>'")
+            src = args[i + 1]
+            dest = args[i + 3]
+            mode_str = args[i + 5]
+            try:
+                mode = int(mode_str, 8)
+            except ValueError:
+                die("Invalid octal mode '%s' for entry '%s'" % (mode_str, dest))
+            entries.append((src, dest, mode))
+            i += 6
+        else:
+            die("Unknown argument: %s" % a)
+
+    if manifest_path is None:
+        die("Missing required --manifest argument")
+    if manifest_archive_path is None:
+        die("Missing required --manifest-path argument")
+    if output_zip_path is None:
+        die("Missing required --output argument")
+
+    return manifest_path, manifest_archive_path, output_zip_path, entries
+
+
+def _check_collisions(manifest_archive_path, entries):
+    """Fail if any two entries would map to the same archive path.
+
+    Duplicate archive paths would silently overwrite earlier entries when
+    written to a zipfile, yielding ambiguous, non-deterministic output, so they
+    are rejected outright.
+    """
+    seen = set([manifest_archive_path])
+    for (_, dest, _) in entries:
+        if dest in seen:
+            die("Duplicate archive entry path: %s" % dest)
+        seen.add(dest)
+
+
 def main():
-    if len(sys.argv) != 5:
-        die(
-            "Usage: celix_zip.py <manifest_path> <library_path> "
-            "<output_zip_path> <manifest_archive_path>"
-        )
+    manifest_path, manifest_archive_path, output_zip_path, entries = _parse_args(sys.argv[1:])
 
-    manifest_path = sys.argv[1]
-    library_path = sys.argv[2]
-    output_zip_path = sys.argv[3]
-    manifest_archive_path = sys.argv[4]  # e.g. "META-INF/MANIFEST.MF" or "META-INF/MANIFEST.json"
-
-    # Validate inputs exist
     if not os.path.isfile(manifest_path):
         die("Manifest file not found: %s" % manifest_path)
-    if not os.path.isfile(library_path):
-        die("Library file not found: %s" % library_path)
+    for (src, _, _) in entries:
+        if not os.path.isfile(src):
+            die("Entry file not found: %s" % src)
+
+    _check_collisions(manifest_archive_path, entries)
 
     try:
         with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -97,9 +164,9 @@ def main():
             # deterministic ordering is guaranteed.
             _add_file(zf, manifest_path, manifest_archive_path, 0o644)
 
-            # Use os.path.basename to handle both Unix and Windows paths.
-            library_name = os.path.basename(library_path)
-            _add_file(zf, library_path, library_name, 0o755)
+            # Then write the rest in the exact order given.
+            for (src, dest, mode) in entries:
+                _add_file(zf, src, dest, mode)
     except zipfile.BadZipFile as e:
         die("Failed to create zip archive: %s" % e)
     except OSError as e:

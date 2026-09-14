@@ -50,4 +50,12 @@ celix_bundle(
     symbolic_name = "org.example.hello",
     tags = ["manual"],
     version = "1.0.0",  # optional, defaults to "0.0.0"
+    # Optional attributes:
+    # private_libs = [":helper_activator"],  # extra .so/.dylib files at bundle root
+    # resources = [":resource_files"],       # files bundled preserving short_path
+    # headers = {"Custom-Header": "value"},  # custom manifest headers
+    # description = "Hello world bundle",    # Bundle-Description, only when non-empty
+    # group = "org.example",                 # Bundle-Group, only when non-empty
+    # filename = "hello",                    # output zip base name (defaults to name)
+    # no_activator = True,                   # ship a bundle without an activator library
 )

@@ -77,8 +77,11 @@ celix_bundle(
     activator = ":hello_activator",
     symbolic_name = "com.example.hello",
     version = "1.0.0",
-    # private_libs = [":other_lib"],   # optional extra .so/.dylib files
-    # resources = [":resource_files"], # optional filegroup
+    private_libs = [":other_lib"],   # optional extra .so/.dylib files
+    resources = [":resource_files"], # optional filegroup
+    description = "Hello world bundle",  # optional, emitted when non-empty
+    group = "com.example",               # optional, emitted when non-empty
+    filename = "hello",                  # optional output zip base name (defaults to name)
 )
 ```
 
@@ -115,6 +118,31 @@ CELIX_GEN_BUNDLE_ACTIVATOR(activator_data_t, activator_start, activator_stop)
 
 You can install the resulting zip into a Celix container (built with Celix’s CMake tooling or a future `celix_container` rule) and start it via the Celix shell.
 
+### Additional attributes
+
+Besides `activator` and `symbolic_name`, `celix_bundle` accepts:
+
+| Attribute       | Description                                                                  |
+|-----------------|------------------------------------------------------------------------------|
+| `private_libs`  | Extra private shared libraries bundled into the zip root (mode 0755). Each entry may be a `cc_shared_library` target or a plain `.so`/`.dylib`/`.dll` file. Emitted in the `Private-Library` manifest header. |
+| `resources`     | Files (e.g. a `filegroup`) bundled preserving their package-relative path, so subdirectories are supported (mode 0644). |
+| `headers`       | Custom manifest headers. Emitted verbatim as `Key: value` lines (properties) or as top-level JSON string fields (3.x manifest). |
+| `description`   | `Bundle-Description` header (properties) / `CELIX_BUNDLE_DESCRIPTION` (3.x). Only emitted when non-empty. |
+| `group`         | `Bundle-Group` header (properties) / `CELIX_BUNDLE_GROUP` (3.x). Only emitted when non-empty. |
+| `filename`      | Override the output zip base name (a trailing `.zip` is normalized away). Defaults to the target name. |
+| `no_activator`  | When `True`, ships a bundle with no activator library and makes `activator` optional (default `False`). |
+
+For example, a bundle with no activator (e.g. a shared resource library):
+
+```python
+celix_bundle(
+    name = "shared_config_bundle",
+    symbolic_name = "com.example.config",
+    no_activator = True,
+    resources = [":config_files"],
+)
+```
+
 ## What the rule produces
 
 A Celix bundle zip with at least:
@@ -123,9 +151,9 @@ A Celix bundle zip with at least:
 META-INF/MANIFEST.MF        (Celix 1.x / 2.x — OSGi properties)
   or
 META-INF/MANIFEST.json      (Celix 3.x — JSON format)
-libhello_activator.so   (or .dylib)
-[optional private libraries]
-[optional resources]
+libhello_activator.so   (or .dylib)          (omitted with no_activator = True)
+lib<private_lib>.so     (optional private libraries, at bundle root)
+<resource short_path>   (optional resources, path preserved)
 ```
 
 The manifest format is determined by the Celix runtime version targeted by the `celix` attribute:

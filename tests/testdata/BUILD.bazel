@@ -31,6 +31,19 @@ cc_shared_library(
     deps = [":dummy_activator_lib"],
 )
 
+cc_shared_library(
+    name = "dummy_private_lib",
+    deps = [":dummy_activator_lib"],
+)
+
+filegroup(
+    name = "dummy_resources",
+    srcs = [
+        "config.txt",
+        "configs/nested.txt",
+    ],
+)
+
 celix_bundle(
     name = "test_bundle",
     activator = ":dummy_lib",
@@ -57,4 +70,27 @@ celix_bundle(
     celix = ":celix_v3",
     symbolic_name = "com.example.test_v3",
     version = "1.2.3",
+)
+
+celix_bundle(
+    name = "test_bundle_full",
+    activator = ":dummy_lib",
+    bundle_name = "Full Test Bundle",
+    description = "A full test bundle",
+    filename = "custom_zip_name.zip",
+    group = "com.example.group",
+    headers = {
+        "Custom-Header": "custom-value",
+    },
+    private_libs = [":dummy_private_lib"],
+    resources = [":dummy_resources"],
+    symbolic_name = "com.example.full",
+    version = "2.0.0",
+)
+
+celix_bundle(
+    name = "test_bundle_no_activator",
+    no_activator = True,
+    resources = [":dummy_resources"],
+    symbolic_name = "com.example.no_activator",
 )

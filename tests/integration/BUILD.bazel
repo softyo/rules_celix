@@ -66,3 +66,55 @@ py_test(
     ],
     main = "validate_bundle.py",
 )
+
+py_test(
+    name = "validate_bundle_full_test",
+    srcs = ["validate_bundle.py"],
+    args = [
+        "$(rootpath //tests/testdata:test_bundle_full)",
+        "com.example.full",
+        "2.0.0",
+        "--format",
+        "properties",
+        "Full Test Bundle",
+        "--description",
+        "A full test bundle",
+        "--group",
+        "com.example.group",
+        "--private-lib",
+        "libdummy_private_lib.so",
+        "--resource",
+        "tests/testdata/config.txt",
+        "--resource",
+        "tests/testdata/configs/nested.txt",
+        "--header",
+        "Custom-Header",
+        "custom-value",
+    ],
+    data = [
+        "//tests/testdata:test_bundle_full",
+    ],
+    main = "validate_bundle.py",
+)
+
+py_test(
+    name = "validate_bundle_no_activator_test",
+    srcs = ["validate_bundle.py"],
+    args = [
+        "$(rootpath //tests/testdata:test_bundle_no_activator)",
+        "com.example.no_activator",
+        "0.0.0",
+        "--format",
+        "properties",
+        "com.example.no_activator",
+        "--resource",
+        "tests/testdata/config.txt",
+        "--resource",
+        "tests/testdata/configs/nested.txt",
+        "--no-activator",
+    ],
+    data = [
+        "//tests/testdata:test_bundle_no_activator",
+    ],
+    main = "validate_bundle.py",
+)

@@ -14,7 +14,7 @@
 
 """Zip assembly helpers for Celix bundle packaging."""
 
-def create_bundle_zip(ctx, library, manifest, manifest_archive_path, zip_tool):
+def create_bundle_zip(ctx, manifest, manifest_archive_path, file_specs, zip_tool, zip_name):
     """Create the final bundle zip with the manifest as the first entry.
 
     Uses a hermetic py_binary tool (//tools:celix_zip) so the packaging step
@@ -22,29 +22,38 @@ def create_bundle_zip(ctx, library, manifest, manifest_archive_path, zip_tool):
     toolchain resolution.  The zip layout follows Celix conventions:
         META-INF/MANIFEST.MF  (or META-INF/MANIFEST.json for Celix 3.x)
         <library basename>
+        [additional private libraries]
+        [resources preserving their short_path]
 
     Args:
         ctx: Rule context.
-        library: File: the shared library to include.
         manifest: File: the generated manifest file.
         manifest_archive_path: string: path inside the zip for the manifest.
+        file_specs: list of (src_file, dest, mode) entries to package after the manifest.
         zip_tool: File: the resolved //tools:celix_zip py3_binary.
+        zip_name: string: output zip file base name (already includes the .zip suffix).
 
     Returns:
         File: the output .zip bundle.
     """
-    zip_file = ctx.actions.declare_file("%s.zip" % ctx.label.name)
+    zip_file = ctx.actions.declare_file(zip_name)
+
+    args = ctx.actions.args()
+    args.add("--manifest", manifest.path)
+    args.add("--manifest-path", manifest_archive_path)
+    args.add("--output", zip_file.path)
+    inputs = [manifest]
+    for (src, dest, mode) in file_specs:
+        inputs.append(src)
+        args.add("--add", src.path)
+        args.add("--dest", dest)
+        args.add("--mode", "%o" % mode)
 
     ctx.actions.run(
-        inputs = [library, manifest],
+        inputs = inputs,
         outputs = [zip_file],
         executable = zip_tool,
-        arguments = [
-            manifest.path,
-            library.path,
-            zip_file.path,
-            manifest_archive_path,
-        ],
+        arguments = [args],
         mnemonic = "CelixBundleZip",
         progress_message = "Packaging Celix bundle %{output}",
     )
