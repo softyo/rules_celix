@@ -82,7 +82,10 @@ py_test(
         "--group",
         "com.example.group",
         "--private-lib",
-        "libdummy_private_lib.so",
+    ] + select({
+        "@platforms//os:osx": ["libdummy_private_lib.dylib"],
+        "//conditions:default": ["libdummy_private_lib.so"],
+    }) + [
         "--resource",
         "tests/testdata/config.txt",
         "--resource",
