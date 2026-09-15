@@ -18,15 +18,15 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 
 ## Current status
 
-- Pre-0.1 / experimental
-- Not published to the Bazel Central Registry (BCR)
-- API may change without notice
+- v0.1.0 released (tagged `v0.1.0`)
+- Not published to the Bazel Central Registry (BCR) — deferred to v1.0
+- API may change without notice until 1.0
 
 ## Milestones
 
 | Milestone | Status      | Description |
 |-----------|-------------|-------------|
-| **0.1**   | Target      | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
+| **0.1**   | Done        | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
 | **0.2**   | Planned     | Convenience macro that also creates the `cc_shared_library` for the user. C++ activator example. |
 | **0.3**   | Planned     | Basic `celix_container`-style rule or documented pattern for a runnable launcher that embeds a set of bundles. |
 | **0.4**   | Planned     | Version compatibility tests |
@@ -36,7 +36,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 
 ```
 rules_celix/
-├── MODULE.bazel              # module definition & deps (rules_cc, rules_pkg, skylib)
+├── MODULE.bazel              # module definition & deps (rules_cc, skylib)
 ├── README.md                 # human-facing documentation
 ├── AGENTS.md                 # this file
 ├── LICENSE                   # Apache-2.0
@@ -73,7 +73,7 @@ rules_celix/
 
 1. **Hermetic by default** — no reliance on system `cmake`, `jar`, or a pre-installed Celix for the packaging step itself.
 2. **Thin public surface** — prefer a small `celix_bundle` (+ later `celix_container`) over many specialised rules.
-3. **Reuse existing rules** — whenever possible: compilation via `rules_cc`; packaging via `rules_pkg`. Avoid reinventing zip or C/C++ toolchains.
+3. **Reuse existing rules** — whenever possible: compilation via `rules_cc`; avoid reinventing zip or C/C++ toolchains. Note: zip assembly intentionally uses the small custom tool in `tools/celix_zip.py` instead of `rules_pkg`'s `pkg_zip` (entry sorting would break Celix's manifest-first requirement — see the tool's header).
 4. **Celix is a peer, not a dependency of the ruleset** — users supply Celix headers/libraries; the ruleset only produces the bundle artifact.
 5. **Deterministic output** — same inputs → bit-identical (or at least semantically identical) zip; `META-INF/MANIFEST.MF` must be the first entry.
 6. **bzlmod-first** — `MODULE.bazel` is authoritative; keep any WORKSPACE support minimal and transitional.

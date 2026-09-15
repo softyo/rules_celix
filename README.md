@@ -10,8 +10,8 @@ This ruleset lets you produce valid Celix bundles from a fully hermetic Bazel bu
 
 ## Status
 
-**Pre-release / experimental.**  
-The API is not yet stable. The ruleset is not published to the [Bazel Central Registry (BCR)](https://registry.bazel.build/). Use it via `local_path_override`, `git_override`, or an `archive_override` until a release is available.
+**v0.1.0 released.**  
+This is the first tagged release. The ruleset is not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) — BCR publication is planned for v1.0. Use it via `local_path_override` or `git_override` pinned to the `v0.1.0` tag.
 
 ## Requirements
 
@@ -39,7 +39,7 @@ Until the module is on BCR, point at a local checkout or a git commit:
 ```python
 # MODULE.bazel
 
-bazel_dep(name = "rules_celix", version = "0.0.1")
+bazel_dep(name = "rules_celix", version = "0.1.0")
 local_path_override(
     module_name = "rules_celix",
     path = "../rules_celix",          # path to this repository
@@ -239,13 +239,13 @@ The generated HTML reference will be available at:
 
 ## Tentative roadmap (high level)
 
-| Version | Focus                                                    |
-|---------|----------------------------------------------------------|
-| 0.1     | Packaging rule only (existing `cc_shared_library` → zip) |
-| 0.2     | Convenience macro that also creates the shared library   |
-| 0.3     | Basic `celix_container` / launcher support               |
-| 0.4     | Version compatibility tests                              |
-| 1.0     | Stable API, BCR publication                              |
+| Version | Status  | Focus                                                    |
+|---------|---------|----------------------------------------------------------|
+| 0.1     | Done    | Packaging rule only (existing `cc_shared_library` → zip) |
+| 0.2     | Planned | Convenience macro that also creates the shared library   |
+| 0.3     | Planned | Basic `celix_container` / launcher support               |
+| 0.4     | Planned | Version compatibility tests                              |
+| 1.0     | Planned | Stable API, BCR publication                              |
 
 ## Contributing
 
