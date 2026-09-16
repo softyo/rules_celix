@@ -43,7 +43,10 @@ bzl_library(
 bzl_library(
     name = "bundle_bzl",
     srcs = ["bundle.bzl"],
-    deps = ["//celix/internal:bundle_impl_bzl"],
+    deps = [
+        "//celix/internal:bundle_impl_bzl",
+        "//celix/internal:cc_bzl",
+    ],
 )
 
 stardoc(
@@ -55,6 +58,7 @@ stardoc(
         ":providers_bzl",
         ":runtime_bzl",
         "//celix/internal:bundle_impl_bzl",
+        "//celix/internal:cc_bzl",
         "//celix/internal:manifest_bzl",
         "//celix/internal:zip_bzl",
     ],

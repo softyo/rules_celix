@@ -19,11 +19,18 @@ Load this file to access all user-facing rules and macros:
     load("@rules_celix//celix:defs.bzl", "celix_bundle")
 """
 
-load(":bundle.bzl", _celix_bundle = "celix_bundle")
+load(
+    ":bundle.bzl",
+    _celix_bundle = "celix_bundle",
+    _celix_c_bundle = "celix_c_bundle",
+    _celix_cpp_bundle = "celix_cpp_bundle",
+)
 load(":providers.bzl", _CelixBundleInfo = "CelixBundleInfo", _CelixRuntimeInfo = "CelixRuntimeInfo")
 load(":runtime.bzl", _celix_runtime = "celix_runtime")
 
 celix_bundle = _celix_bundle
+celix_c_bundle = _celix_c_bundle
+celix_cpp_bundle = _celix_cpp_bundle
 CelixBundleInfo = _CelixBundleInfo
 CelixRuntimeInfo = _CelixRuntimeInfo
 celix_runtime = _celix_runtime

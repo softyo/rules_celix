@@ -15,31 +15,9 @@
 """Implementation of the celix_bundle rule."""
 
 load("//celix:providers.bzl", "CelixBundleInfo", "CelixRuntimeInfo")
+load("//celix/internal:cc.bzl", "get_shared_library_file")
 load("//celix/internal:manifest.bzl", "generate_manifest")
 load("//celix/internal:zip.bzl", "create_bundle_zip")
-
-def _get_shared_library_file(library_target):
-    """Extract the .so/.dylib output from a cc_shared_library target.
-
-    Tries CcSharedLibraryInfo first (Bazel 7+), then falls back to
-    searching DefaultInfo.files for the dynamic library artifact.
-    """
-
-    # Prefer the dedicated provider when available.
-    if CcSharedLibraryInfo in library_target:
-        info = library_target[CcSharedLibraryInfo]
-
-        # CcSharedLibraryInfo carries a list of libraries.
-        libs = info.libraries_to_link.to_list() if hasattr(info, "libraries_to_link") else []
-        if libs:
-            return libs[0].dynamic_library
-
-    # Fallback: hunt through DefaultInfo for the .so/.dylib.
-    for f in library_target[DefaultInfo].files.to_list():
-        if f.extension in ("so", "dylib", "dll"):
-            return f
-
-    fail("Could not locate a shared library (.so/.dylib/.dll) in target %s" % library_target.label)
 
 def _celix_bundle_impl_fn(ctx):
     no_activator = ctx.attr.no_activator
@@ -50,11 +28,11 @@ def _celix_bundle_impl_fn(ctx):
     # In no_activator mode the activator (if set) is ignored and not shipped.
     activator_file = None
     if not no_activator:
-        activator_file = _get_shared_library_file(ctx.attr.activator)
+        activator_file = get_shared_library_file(ctx.attr.activator)
 
     private_lib_files = []
     for lib_target in ctx.attr.private_libs:
-        private_lib_files.append(_get_shared_library_file(lib_target))
+        private_lib_files.append(get_shared_library_file(lib_target))
 
     manifest = generate_manifest(
         ctx,

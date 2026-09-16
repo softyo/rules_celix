@@ -22,6 +22,24 @@ package(default_visibility = ["//celix:__subpackages__"])
 bzl_library(
     name = "bundle_impl_bzl",
     srcs = ["bundle_impl.bzl"],
+    deps = [":cc_bzl"],
+)
+
+bzl_library(
+    name = "cc_bzl",
+    srcs = ["cc.bzl"],
+    deps = [":rules_cc_defs_bzl"],
+)
+
+# rules_cc 0.0.11 does not ship a bzl_library for cc/defs.bzl; stardoc's
+# starlark_doc_extract requires every transitively loaded module to be covered.
+bzl_library(
+    name = "rules_cc_defs_bzl",
+    srcs = [
+        "@rules_cc//cc:bzl_srcs",
+        "@rules_cc//cc/common:srcs",
+        "@rules_cc//cc/toolchains:srcs",
+    ],
 )
 
 bzl_library(

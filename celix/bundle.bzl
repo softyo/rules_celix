@@ -42,6 +42,10 @@ Bundles may also carry private libraries, resources, custom manifest headers, an
 """
 
 load("//celix/internal:bundle_impl.bzl", _celix_bundle_impl = "celix_bundle_impl")
+load(
+    "//celix/internal:cc.bzl",
+    _create_activator_shared_library = "create_activator_shared_library",
+)
 
 def celix_bundle(
         name,
@@ -100,5 +104,149 @@ def celix_bundle(
         group = group,
         filename = filename,
         no_activator = no_activator,
+        **kwargs
+    )
+
+def celix_c_bundle(
+        name,
+        symbolic_name,
+        srcs,
+        deps = [],
+        copts = [],
+        linkopts = [],
+        includes = [],
+        version = "0.0.0",
+        bundle_name = "",
+        celix = "@rules_celix//celix:default_runtime",
+        private_libs = [],
+        resources = [],
+        headers = {},
+        description = "",
+        group = "",
+        filename = "",
+        **kwargs):
+    """Convenience macro: compile a C activator into a Celix bundle in one call.
+
+    Generates `cc_library(name = <name>_activator_lib, ...)` and
+    `cc_shared_library(name = <name>_activator, deps = [":<name>_activator_lib"])`,
+    then delegates to `celix_bundle(name = <name>, activator = ":<name>_activator", ...)`.
+
+    Args:
+        name (str): Bundle target name (also the prefix for the internal `_activator` targets).
+        symbolic_name (str): OSGi `Bundle-SymbolicName`.
+        srcs (list of Label): C sources of the activator.
+        deps (list of Label): cc_library deps (e.g. the user's Celix framework target).
+        copts (list of str): Compiler options (e.g. `["-DFOO"]`). No C++ standard is forced.
+        linkopts (list of str): Linker options.
+        includes (list of str): Include paths for the generated cc_library.
+        version (str): Bundle version. Defaults to `"0.0.0"`.
+        bundle_name (str): Bundle display name; defaults to symbolic_name in the rule.
+        celix (Label): Celix runtime target; defaults to `//celix:default_runtime`.
+        private_libs (list of Label): Extra shared libraries bundled at the zip root.
+        resources (list of Label): Resource files bundled with their short_path preserved.
+        headers (dict of str to str): Custom manifest headers.
+        description (str): `Bundle-Description`, emitted when non-empty.
+        group (str): `Bundle-Group`, emitted when non-empty.
+        filename (str): Output zip base name; defaults to `name`. Trailing `.zip` normalized away.
+        **kwargs: Extra attributes forwarded to the generated targets; only cc-agnostic
+            attributes every rule accepts (e.g. `tags`, `visibility`, `testonly`) are safe.
+            cc-only attributes (e.g. `hdrs`, `defines`, `alwayslink`) are rejected by the
+            `celix_bundle` rule; use `celix_bundle` with an explicit `cc_shared_library` when
+            you need them.
+    """
+    activator_name = _create_activator_shared_library(
+        name = name,
+        srcs = srcs,
+        deps = deps,
+        copts = copts,
+        linkopts = linkopts,
+        includes = includes,
+        **kwargs
+    )
+    celix_bundle(
+        name = name,
+        symbolic_name = symbolic_name,
+        activator = ":" + activator_name,
+        version = version,
+        bundle_name = bundle_name,
+        celix = celix,
+        private_libs = private_libs,
+        resources = resources,
+        headers = headers,
+        description = description,
+        group = group,
+        filename = filename,
+        **kwargs
+    )
+
+def celix_cpp_bundle(
+        name,
+        symbolic_name,
+        srcs,
+        deps = [],
+        copts = [],
+        linkopts = [],
+        includes = [],
+        version = "0.0.0",
+        bundle_name = "",
+        celix = "@rules_celix//celix:default_runtime",
+        private_libs = [],
+        resources = [],
+        headers = {},
+        description = "",
+        group = "",
+        filename = "",
+        **kwargs):
+    """Convenience macro: compile a C++ activator into a Celix bundle in one call.
+
+    Generates `cc_library(name = <name>_activator_lib, ...)` and
+    `cc_shared_library(name = <name>_activator, deps = [":<name>_activator_lib"])`,
+    then delegates to `celix_bundle(name = <name>, activator = ":<name>_activator", ...)`.
+
+    Args:
+        name (str): Bundle target name (also the prefix for the internal `_activator` targets).
+        symbolic_name (str): OSGi `Bundle-SymbolicName`.
+        srcs (list of Label): C++ sources of the activator.
+        deps (list of Label): cc_library deps (e.g. the user's Celix framework target).
+        copts (list of str): Compiler options (e.g. `["-std=c++17"]`). No C++ standard is forced.
+        linkopts (list of str): Linker options.
+        includes (list of str): Include paths for the generated cc_library.
+        version (str): Bundle version. Defaults to `"0.0.0"`.
+        bundle_name (str): Bundle display name; defaults to symbolic_name in the rule.
+        celix (Label): Celix runtime target; defaults to `//celix:default_runtime`.
+        private_libs (list of Label): Extra shared libraries bundled at the zip root.
+        resources (list of Label): Resource files bundled with their short_path preserved.
+        headers (dict of str to str): Custom manifest headers.
+        description (str): `Bundle-Description`, emitted when non-empty.
+        group (str): `Bundle-Group`, emitted when non-empty.
+        filename (str): Output zip base name; defaults to `name`. Trailing `.zip` normalized away.
+        **kwargs: Extra attributes forwarded to the generated targets; only cc-agnostic
+            attributes every rule accepts (e.g. `tags`, `visibility`, `testonly`) are safe.
+            cc-only attributes (e.g. `hdrs`, `defines`, `alwayslink`) are rejected by the
+            `celix_bundle` rule; use `celix_bundle` with an explicit `cc_shared_library` when
+            you need them.
+    """
+    activator_name = _create_activator_shared_library(
+        name = name,
+        srcs = srcs,
+        deps = deps,
+        copts = copts,
+        linkopts = linkopts,
+        includes = includes,
+        **kwargs
+    )
+    celix_bundle(
+        name = name,
+        symbolic_name = symbolic_name,
+        activator = ":" + activator_name,
+        version = version,
+        bundle_name = bundle_name,
+        celix = celix,
+        private_libs = private_libs,
+        resources = resources,
+        headers = headers,
+        description = description,
+        group = group,
+        filename = filename,
         **kwargs
     )
