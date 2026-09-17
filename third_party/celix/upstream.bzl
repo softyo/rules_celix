@@ -39,9 +39,9 @@ CELIX_SHA256 = "6dfe5eeea63d81fe9d1d7832a7ebb1915974ab0f3281422af74ec17d9644e7c0
 CELIX_STRIP_PREFIX = "celix-rel-celix-2.4.0"
 
 # --- zlib --------------------------------------------------------------------
-ZLIB_VERSION = "1.3"
+ZLIB_VERSION = "1.3.1"
 ZLIB_URL = "https://github.com/madler/zlib/releases/download/v" + ZLIB_VERSION + "/zlib-" + ZLIB_VERSION + ".tar.gz"
-ZLIB_SHA256 = "ff0ba4c292013dbc27530b3a81e1f9a813cd39de01ca5e0f8bf355702efa593e"
+ZLIB_SHA256 = "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23"
 ZLIB_STRIP_PREFIX = "zlib-" + ZLIB_VERSION
 
 # --- libzip ------------------------------------------------------------------
