@@ -39,5 +39,15 @@ cc_library(
         "zutil.h",
     ],
     includes = ["."],
-    copts = ["-DZLIB_CONST"],
+    copts = [
+        "-DZLIB_CONST",
+    ] + select({
+        # zconf.h only includes <unistd.h> / <stdlib.h> when Z_HAVE_UNISTD_H is
+        # defined; upstream derives this from its configure/CMake check. gz*.c
+        # call read()/close()/open() directly, so the flag is required on the
+        # POSIX platforms (Apple clang errors on implicit declarations).
+        "@platforms//os:linux": ["-DZ_HAVE_UNISTD_H"],
+        "@platforms//os:macos": ["-DZ_HAVE_UNISTD_H"],
+        "//conditions:default": [],
+    }),
 )
