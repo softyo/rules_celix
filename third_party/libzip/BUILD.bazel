@@ -1,0 +1,7 @@
+# Package marker: also exports the hand-authored libzip config headers so the
+# @libzip BUILD overlay can reference them as include inputs.
+
+exports_files([
+    "config.h",
+    "zipconf.h",
+])

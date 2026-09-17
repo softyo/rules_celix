@@ -1,0 +1,2 @@
+# Package marker so the .bzl and *.BUILD overlay files in this directory
+# form a Bazel package.

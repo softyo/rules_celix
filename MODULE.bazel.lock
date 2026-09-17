@@ -81,6 +81,66 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//third_party/celix:upstream.bzl%celix_deps": {
+      "general": {
+        "bzlTransitiveDigest": "dlJq34b86CNUWgubUifTeuLOgmr8zWzt8og57hy+AAY=",
+        "usagesDigest": "t1j+ZHjU5UNswX1xMH5vzZ5DeinPzmz5DxHu7l3A8+0=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "celix": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/apache/celix/archive/refs/tags/rel/celix-2.4.0.tar.gz",
+              "sha256": "6dfe5eeea63d81fe9d1d7832a7ebb1915974ab0f3281422af74ec17d9644e7c0",
+              "strip_prefix": "celix-rel-celix-2.4.0",
+              "build_file": "@@//third_party/celix:framework.BUILD",
+              "patches": [
+                "@@//third_party/celix:generated_headers.patch"
+              ],
+              "patch_args": [
+                "-p1"
+              ]
+            }
+          },
+          "zlib": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/madler/zlib/releases/download/v1.3/zlib-1.3.tar.gz",
+              "sha256": "ff0ba4c292013dbc27530b3a81e1f9a813cd39de01ca5e0f8bf355702efa593e",
+              "strip_prefix": "zlib-1.3",
+              "build_file": "@@//third_party/zlib:zlib.BUILD"
+            }
+          },
+          "libzip": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://libzip.org/download/libzip-1.10.1.tar.gz",
+              "sha256": "9669ae5dfe3ac5b3897536dc8466a874c8cf2c0e3b1fdd08d75b273884299363",
+              "strip_prefix": "libzip-1.10.1",
+              "build_file": "@@//third_party/libzip:libzip.BUILD",
+              "patches": [
+                "@@//third_party/libzip:configs.patch"
+              ],
+              "patch_args": [
+                "-p1"
+              ]
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
     "@@rules_jvm_external~//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "yBIfhZ2EaSAb3N3ZaHc2Ly63gmY/p5KssinJ6D3W+1w=",

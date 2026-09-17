@@ -1,0 +1,116 @@
+diff --git a/libs/framework/include/celix_framework_export.h b/libs/framework/include/celix_framework_export.h
+new file mode 100644
+index 0000000..8d25933
+--- /dev/null
++++ b/libs/framework/include/celix_framework_export.h
+@@ -0,0 +1,46 @@
++#ifndef CELIX_FRAMEWORK_EXPORT_H
++#define CELIX_FRAMEWORK_EXPORT_H
++
++/*
++ * Hand-authored stand-in for the header normally produced by CMake's
++ * generate_export_header(framework). In the native Bazel build the framework is
++ * compiled as a static archive whose objects are linked directly into a bundle
++ * activator shared library, so no symbols need default-visibility attributes —
++ * all export/import macros are therefore empty.
++ *
++ * Keep in sync with the framework target in third_party/celix/framework.BUILD.
++ */
++
++#ifdef CELIX_FRAMEWORK_STATIC_DEFINE
++#  define CELIX_FRAMEWORK_EXPORT
++#  define CELIX_FRAMEWORK_NO_EXPORT
++#else
++#  ifndef CELIX_FRAMEWORK_EXPORT
++#    ifdef celix_framework_EXPORTS
++        /* We are building this library */
++#      define CELIX_FRAMEWORK_EXPORT
++#    else
++        /* We are using this library */
++#      define CELIX_FRAMEWORK_EXPORT
++#    endif
++#  endif
++#  ifndef CELIX_FRAMEWORK_NO_EXPORT
++#    define CELIX_FRAMEWORK_NO_EXPORT
++#  endif
++#endif
++
++#ifndef CELIX_FRAMEWORK_DEPRECATED
++#  define CELIX_FRAMEWORK_DEPRECATED
++#endif
++#ifndef CELIX_FRAMEWORK_DEPRECATED_EXPORT
++#  define CELIX_FRAMEWORK_DEPRECATED_EXPORT CELIX_FRAMEWORK_EXPORT
++#endif
++#ifndef CELIX_FRAMEWORK_DEPRECATED_NO_EXPORT
++#  define CELIX_FRAMEWORK_DEPRECATED_NO_EXPORT CELIX_FRAMEWORK_NO_EXPORT
++#endif
++
++#ifndef CELIX_FRAMEWORK_DEFINE_NO_DEPRECATED
++#  define CELIX_FRAMEWORK_DEFINE_NO_DEPRECATED
++#endif
++
++#endif /* CELIX_FRAMEWORK_EXPORT_H */
+diff --git a/libs/utils/include/celix_err_constants.h b/libs/utils/include/celix_err_constants.h
+new file mode 100644
+index 0000000..5f6acd5
+--- /dev/null
++++ b/libs/utils/include/celix_err_constants.h
+@@ -0,0 +1,12 @@
++#ifndef CELIX_CELIX_ERR_CONSTANTS_H
++#define CELIX_CELIX_ERR_CONSTANTS_H
++
++/*
++ * Hand-authored stand-in for the header normally produced by CMake's
++ * configure_file(celix_err_constants.h.in). CELIX_ERR_BUFFER_SIZE is the
++ * thread-specific buffer size used for library error messages.
++ */
++
++#define CELIX_ERR_BUFFER_SIZE 512
++
++#endif //CELIX_CELIX_ERR_CONSTANTS_H
+diff --git a/libs/utils/include/celix_utils_export.h b/libs/utils/include/celix_utils_export.h
+new file mode 100644
+index 0000000..e95b3f3
+--- /dev/null
++++ b/libs/utils/include/celix_utils_export.h
+@@ -0,0 +1,40 @@
++#ifndef CELIX_UTILS_EXPORT_H
++#define CELIX_UTILS_EXPORT_H
++
++/*
++ * Hand-authored stand-in for the header normally produced by CMake's
++ * generate_export_header(utils). See celix_framework_export.h for rationale —
++ * all macros are empty because the library is compiled statically in Bazel.
++ */
++
++#ifdef CELIX_UTILS_STATIC_DEFINE
++#  define CELIX_UTILS_EXPORT
++#  define CELIX_UTILS_NO_EXPORT
++#else
++#  ifndef CELIX_UTILS_EXPORT
++#    ifdef celix_utils_EXPORTS
++#      define CELIX_UTILS_EXPORT
++#    else
++#      define CELIX_UTILS_EXPORT
++#    endif
++#  endif
++#  ifndef CELIX_UTILS_NO_EXPORT
++#    define CELIX_UTILS_NO_EXPORT
++#  endif
++#endif
++
++#ifndef CELIX_UTILS_DEPRECATED
++#  define CELIX_UTILS_DEPRECATED
++#endif
++#ifndef CELIX_UTILS_DEPRECATED_EXPORT
++#  define CELIX_UTILS_DEPRECATED_EXPORT CELIX_UTILS_EXPORT
++#endif
++#ifndef CELIX_UTILS_DEPRECATED_NO_EXPORT
++#  define CELIX_UTILS_DEPRECATED_NO_EXPORT CELIX_UTILS_NO_EXPORT
++#endif
++
++#ifndef CELIX_UTILS_DEFINE_NO_DEPRECATED
++#  define CELIX_UTILS_DEFINE_NO_DEPRECATED
++#endif
++
++#endif /* CELIX_UTILS_EXPORT_H */
