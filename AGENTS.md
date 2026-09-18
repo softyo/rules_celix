@@ -19,6 +19,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 ## Current status
 
 - v0.1.0 released (tagged `v0.1.0`)
+- v0.2.0 in progress: `celix_c_bundle` / `celix_cpp_bundle` convenience macros, a hermitically-built real-Celix C++ example (`examples/hello_cxx`), and the `celix/internal/cc.bzl` shared-library refactor
 - Not published to the Bazel Central Registry (BCR) — deferred to v1.0
 - API may change without notice until 1.0
 
@@ -27,7 +28,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 | Milestone | Status      | Description |
 |-----------|-------------|-------------|
 | **0.1**   | Done        | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
-| **0.2**   | Planned     | Convenience macro that also creates the `cc_shared_library` for the user. C++ activator example. |
+| **0.2**   | In progress | `celix_c_bundle` / `celix_cpp_bundle` convenience macros (`srcs`-only, no explicit `activator` — that stayed `celix_bundle`'s job), real-Celix C++ example, and the shared-library refactor in `celix/internal/cc.bzl`.
 | **0.3**   | Planned     | Basic `celix_container`-style rule or documented pattern for a runnable launcher that embeds a set of bundles. |
 | **0.4**   | Planned     | Version compatibility tests |
 | **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates. |
@@ -48,8 +49,10 @@ rules_celix/
 │   ├── providers.bzl         # CelixBundleInfo and related providers
 │   └── internal/             # implementation details — do not load from outside
 │       ├── bundle_impl.bzl
+│       ├── cc.bzl            # shared-library helpers (create_activator_shared_library, …)
 │       ├── manifest.bzl      # MANIFEST.MF generation logic
 │       └── zip.bzl           # packaging helpers (prefer rules_pkg)
+├── third_party/              # hermetic native builds (Celix, libzip, zlib, uuid)
 ├── examples/                 # runnable, tested samples (hello_c, hello_cxx, …)
 ├── tests/                    # analysistest + integration tests
 ├── tools/                    # optional helper binaries / scripts
@@ -61,9 +64,12 @@ rules_celix/
 | Task                              | Primary location              |
 |-----------------------------------|-------------------------------|
 | Public rule attributes / docs     | `celix/bundle.bzl`, `celix/defs.bzl` |
+| Convenience macros (`celix_c_bundle` / `celix_cpp_bundle`) | `celix/bundle.bzl` (note: these are `srcs`-only; the explicit `activator` forward path is `celix_bundle`'s job) |
+| Activator shared-library wiring   | `celix/internal/cc.bzl`       |
 | Manifest header generation        | `celix/internal/manifest.bzl` |
 | Zip assembly / ordering           | `celix/internal/zip.bzl`      |
 | Provider definition               | `celix/providers.bzl`         |
+| Hermetic native deps (Celix, libzip, zlib, uuid) | `third_party/`     |
 | User-visible examples             | `examples/`                   |
 | Rule behaviour tests              | `tests/`                      |
 | Module dependencies / versions    | `MODULE.bazel`                |

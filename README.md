@@ -11,7 +11,13 @@ This ruleset lets you produce valid Celix bundles from a fully hermetic Bazel bu
 ## Status
 
 **v0.1.0 released.**  
-This is the first tagged release. The ruleset is not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) — BCR publication is planned for v1.0. Use it via `local_path_override` or `git_override` pinned to the `v0.1.0` tag.
+**v0.2.0 in progress** — adds the `celix_c_bundle` / `celix_cpp_bundle` convenience macros
+(single call that also creates the activator shared library), a hermetically built real-Celix
+C++ example (`examples/hello_cxx`), and expanded analysis + integration test coverage.
+
+The ruleset is not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) —
+BCR publication is planned for v1.0. Use it via `local_path_override` or `git_override` (pinned
+to the `v0.1.0` tag or a commit).
 
 ## Requirements
 
@@ -109,6 +115,39 @@ static celix_status_t activator_stop(activator_data_t *data, celix_bundle_contex
 CELIX_GEN_BUNDLE_ACTIVATOR(activator_data_t, activator_start, activator_stop)
 ```
 
+### Convenience macros
+
+For the common case (a single activator source file), use `celix_c_bundle` (C) or
+`celix_cpp_bundle` (C++) instead of managing the `cc_shared_library` yourself. The macro
+creates the intermediate `cc_library` and `cc_shared_library` targets for you:
+
+```python
+# BUILD.bazel
+load("@rules_celix//celix:defs.bzl", "celix_cpp_bundle")
+
+celix_cpp_bundle(
+    name = "hello_bundle",
+    symbolic_name = "com.example.hello",
+    srcs = ["hello_activator.cc"],
+    copts = ["-std=c++17"],
+    deps = [
+        # Your Celix framework target, e.g.:
+        # "@celix//:framework",
+    ],
+    version = "1.0.0",
+    bundle_name = "Hello bundle",
+)
+```
+
+The C variant is identical but with `celix_c_bundle` and C sources. Both macros forward
+`deps`, `copts`, `linkopts`, and `includes` to the generated `cc_library`, and accept all of
+`celix_bundle`'s packaging attributes (`private_libs`, `resources`, `headers`,
+`description`, `group`, `filename`, …). At least one entry in `srcs` is required.
+
+When you need fine-grained control over the shared library (custom `hdrs`, `defines`,
+`alwayslink`, or a multi-library setup), use the explicit `cc_shared_library` +
+`celix_bundle` walkthrough above — that remains the advanced / explicit-activator path.
+
 ### 3. Build
 
 ```bash
@@ -167,7 +206,9 @@ The packaging step ensures the manifest is the first entry in the zip (Celix req
 
 | Target / symbol       | Description                                      |
 |-----------------------|--------------------------------------------------|
-| `celix_bundle`        | Core rule / macro that builds a bundle zip       |
+| `celix_bundle`        | Core rule / macro that builds a bundle zip from an existing `cc_shared_library` (explicit-activator path) |
+| `celix_c_bundle`      | Convenience macro: compile a C activator + build a bundle in one call |
+| `celix_cpp_bundle`    | Convenience macro: compile a C++ activator + build a bundle in one call |
 | `celix_runtime`       | Declares a Celix runtime version contract        |
 | `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, and activator |
 | `CelixRuntimeInfo`    | Provider carrying the targeted Celix runtime version |
@@ -239,13 +280,13 @@ The generated HTML reference will be available at:
 
 ## Tentative roadmap (high level)
 
-| Version | Status  | Focus                                                    |
-|---------|---------|----------------------------------------------------------|
-| 0.1     | Done    | Packaging rule only (existing `cc_shared_library` → zip) |
-| 0.2     | Planned | Convenience macro that also creates the shared library   |
-| 0.3     | Planned | Basic `celix_container` / launcher support               |
-| 0.4     | Planned | Version compatibility tests                              |
-| 1.0     | Planned | Stable API, BCR publication                              |
+| Version | Status       | Focus                                                    |
+|---------|--------------|----------------------------------------------------------|
+| 0.1     | Done         | Packaging rule only (existing `cc_shared_library` → zip) |
+| 0.2     | In progress  | Convenience macros (`celix_c_bundle`/`celix_cpp_bundle`) + real-Celix C++ example |
+| 0.3     | Planned      | Basic `celix_container` / launcher support               |
+| 0.4     | Planned      | Version compatibility tests                              |
+| 1.0     | Planned      | Stable API, BCR publication                              |
 
 ## Contributing
 

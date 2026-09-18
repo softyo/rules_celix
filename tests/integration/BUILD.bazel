@@ -121,3 +121,54 @@ py_test(
     ],
     main = "validate_bundle.py",
 )
+
+py_test(
+    name = "validate_macro_c_bundle_test",
+    srcs = ["validate_bundle.py"],
+    args = [
+        "$(rootpath //tests/testdata:macro_c_bundle)",
+        "com.example.macro_c",
+        "0.0.0",
+        "--format",
+        "properties",
+        "Macro C Bundle",
+    ],
+    data = [
+        "//tests/testdata:macro_c_bundle",
+    ],
+    main = "validate_bundle.py",
+)
+
+py_test(
+    name = "validate_macro_cpp_bundle_test",
+    srcs = ["validate_bundle.py"],
+    args = [
+        "$(rootpath //tests/testdata:macro_cpp_bundle)",
+        "com.example.macro_cpp",
+        "1.2.3",
+        "--format",
+        "properties",
+        "Macro CXX Bundle",
+    ],
+    data = [
+        "//tests/testdata:macro_cpp_bundle",
+    ],
+    main = "validate_bundle.py",
+)
+
+py_test(
+    name = "validate_macro_flags_bundle_test",
+    srcs = ["validate_bundle.py"],
+    args = [
+        "$(rootpath //tests/testdata:macro_flags_bundle)",
+        "com.example.macro_flags",
+        "0.0.0",
+        "--format",
+        "properties",
+        "Macro Flags Bundle",
+    ],
+    data = [
+        "//tests/testdata:macro_flags_bundle",
+    ],
+    main = "validate_bundle.py",
+)

@@ -47,6 +47,24 @@ load(
     _create_activator_shared_library = "create_activator_shared_library",
 )
 
+def _deny_empty_srcs_impl(ctx):
+    """Analysis-time guard backing the convenience macros' `srcs` requirement.
+
+    The check lives in a rule (not a load-time `fail()` in the macro) so it
+    surfaces during analysis — that is what makes it observable by `analysis_test`
+    with `expect_failure = True`.
+    """
+    fail("%s: requires at least one source file in 'srcs'" % ctx.attr.macro_name)
+
+_deny_empty_srcs = rule(
+    implementation = _deny_empty_srcs_impl,
+    attrs = {
+        "macro_name": attr.string(
+            doc = "Name of the caller macro, used in the failure message.",
+        ),
+    },
+)
+
 def celix_bundle(
         name,
         symbolic_name,
@@ -154,6 +172,14 @@ def celix_c_bundle(
             `celix_bundle` rule; use `celix_bundle` with an explicit `cc_shared_library` when
             you need them.
     """
+    if not srcs:
+        _deny_empty_srcs(
+            name = name,
+            macro_name = "celix_c_bundle",
+            **kwargs
+        )
+        return
+
     activator_name = _create_activator_shared_library(
         name = name,
         srcs = srcs,
@@ -226,6 +252,14 @@ def celix_cpp_bundle(
             `celix_bundle` rule; use `celix_bundle` with an explicit `cc_shared_library` when
             you need them.
     """
+    if not srcs:
+        _deny_empty_srcs(
+            name = name,
+            macro_name = "celix_cpp_bundle",
+            **kwargs
+        )
+        return
+
     activator_name = _create_activator_shared_library(
         name = name,
         srcs = srcs,

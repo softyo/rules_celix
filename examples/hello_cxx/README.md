@@ -4,6 +4,10 @@ This example builds a real Apache Celix bundle from a C++ activator, linking
 against a **hermetically built** `@celix//:framework` (fetched and compiled
 natively by `rules_celix` — no system Celix, no CMake).
 
+This example is part of the CI `build_test` matrix and is built on both
+**Linux** (`ubuntu-latest`) and **macOS** (`macos-latest`), so a regression in
+the real-Celix path (or in `.dylib` packaging) is caught automatically.
+
 ## Pinned Celix version
 
 The framework is pinned to **Apache Celix 2.4.0** (`rel/celix-2.4.0`) via the

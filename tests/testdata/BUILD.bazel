@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
-load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_runtime")
+load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_c_bundle", "celix_cpp_bundle", "celix_runtime")
 
 package(
     default_testonly = True,
@@ -93,4 +93,36 @@ celix_bundle(
     no_activator = True,
     resources = [":dummy_resources"],
     symbolic_name = "com.example.no_activator",
+)
+
+celix_c_bundle(
+    name = "macro_c_bundle",
+    srcs = [
+        "dummy_activator.c",
+        "dummy_activator.h",
+    ],
+    bundle_name = "Macro C Bundle",
+    symbolic_name = "com.example.macro_c",
+)
+
+celix_cpp_bundle(
+    name = "macro_cpp_bundle",
+    srcs = ["dummy_activator.cc"],
+    bundle_name = "Macro CXX Bundle",
+    copts = ["-std=c++17"],
+    symbolic_name = "com.example.macro_cpp",
+    version = "1.2.3",
+)
+
+celix_c_bundle(
+    name = "macro_flags_bundle",
+    srcs = [
+        "flags_activator.c",
+        "inc/flags_only_header.h",
+    ],
+    bundle_name = "Macro Flags Bundle",
+    copts = ["-DENABLED_TEST=1"],
+    includes = ["inc"],
+    linkopts = ["-lm"],
+    symbolic_name = "com.example.macro_flags",
 )
