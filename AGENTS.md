@@ -19,7 +19,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 ## Current status
 
 - v0.1.0 released (tagged `v0.1.0`)
-- v0.2.0 in progress: `celix_c_bundle` / `celix_cpp_bundle` convenience macros, a hermitically-built real-Celix C++ example (`examples/hello_cxx`), and the `celix/internal/cc.bzl` shared-library refactor
+- v0.2.0 in progress: `celix_c_bundle` / `celix_cpp_bundle` convenience macros, hermitically-built real-Celix C and C++ examples (`examples/hello_c`, `examples/hello_cxx`), and the `celix/internal/cc.bzl` shared-library refactor
 - Not published to the Bazel Central Registry (BCR) — deferred to v1.0
 - API may change without notice until 1.0
 
@@ -28,7 +28,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 | Milestone | Status      | Description |
 |-----------|-------------|-------------|
 | **0.1**   | Done        | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
-| **0.2**   | In progress | `celix_c_bundle` / `celix_cpp_bundle` convenience macros (`srcs`-only, no explicit `activator` — that stayed `celix_bundle`'s job), real-Celix C++ example, and the shared-library refactor in `celix/internal/cc.bzl`.
+| **0.2**   | In progress | `celix_c_bundle` / `celix_cpp_bundle` convenience macros (`srcs`-only, no explicit `activator` — that stayed `celix_bundle`'s job), real-Celix C and C++ examples, and the shared-library refactor in `celix/internal/cc.bzl`.
 | **0.3**   | Planned     | Basic `celix_container`-style rule or documented pattern for a runnable launcher that embeds a set of bundles. |
 | **0.4**   | Planned     | Version compatibility tests |
 | **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates. |

@@ -74,8 +74,14 @@ jobs:
           bazel-file: .bazelversion
           sync-with-bazelrc: false
 
-      - name: Bazel build all (except examples)
+      - name: Bazel build all
         run: bazel build //...
+
+      - name: Bazel build C example (hello_c)
+        run: bazel build //examples/hello_c:hello_bundle
+
+      - name: Bazel build C++ example (hello_cxx)
+        run: bazel build //examples/hello_cxx:hello_bundle
 
       - name: Bazel test
         run: bazel test //...

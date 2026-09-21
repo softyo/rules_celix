@@ -23,7 +23,7 @@ body:
       description: How can we reproduce this? Please provide a minimal Bazel example or a link to a repository.
       placeholder: |
         1. Clone rules_celix
-        2. Run `bazel build //examples/hello_c:bundle`
+        2. Run `bazel build //examples/hello_c:hello_bundle`
         3. Inspect the generated zip...
     validations:
       required: true

@@ -68,6 +68,8 @@ bundle whose first entry is `META-INF/MANIFEST.MF` (carrying
 unzip -l bazel-bin/examples/hello_cxx/hello_bundle.zip
 ```
 
+The C twin of this example lives at [`examples/hello_c`](../hello_c/).
+
 ## How it works
 
 The activator implements `celix::BundleActivator` as an RAII object: the

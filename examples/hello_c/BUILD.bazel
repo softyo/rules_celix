@@ -12,50 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Example BUILD file for a Celix bundle.
-
-This example uses a hypothetical @celix//:framework target as a stand-in.
-To build it in your project, replace this with the actual Celix framework
-dependency appropriate for your build environment (e.g. a prebuilt binary,
-a rules_foreign_cc build, or a cc_library pointing to Celix headers/libs).
-
-NOTE: These targets are tagged "manual" because they require Celix headers.
-Build explicitly with: ./bazelw build //examples/hello_c:hello_bundle
+"""C bundle example: a real Celix activator compiled and linked against the
+hermetically built `@celix//:framework`.
 """
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
-load("//celix:defs.bzl", "celix_bundle")
+load("//celix:defs.bzl", "celix_c_bundle")
 
-cc_library(
-    name = "hello_lib",
-    srcs = ["src/hello_activator.c"],
-    tags = ["manual"],
-    deps = [
-        # Replace with your actual Celix framework target, e.g.:
-        # "@celix//:framework"
-        # See README.md for details on obtaining Celix.
-    ],
-)
-
-cc_shared_library(
-    name = "hello_activator",
-    tags = ["manual"],
-    deps = [":hello_lib"],
-)
-
-celix_bundle(
+celix_c_bundle(
     name = "hello_bundle",
-    activator = ":hello_activator",
-    bundle_name = "Hello World Bundle",  # optional, defaults to symbolic_name
+    srcs = ["src/hello_activator.c"],
+    bundle_name = "Hello World Bundle",
     symbolic_name = "org.example.hello",
-    tags = ["manual"],
-    version = "1.0.0",  # optional, defaults to "0.0.0"
-    # Optional attributes:
-    # private_libs = [":helper_activator"],  # extra .so/.dylib files at bundle root
-    # resources = [":resource_files"],       # files bundled preserving short_path
-    # headers = {"Custom-Header": "value"},  # custom manifest headers
-    # description = "Hello world bundle",    # Bundle-Description, only when non-empty
-    # group = "org.example",                 # Bundle-Group, only when non-empty
-    # filename = "hello",                    # output zip base name (defaults to name)
-    # no_activator = True,                   # ship a bundle without an activator library
+    version = "1.0.0",
+    deps = ["@celix//:framework"],
 )

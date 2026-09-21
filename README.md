@@ -12,8 +12,8 @@ This ruleset lets you produce valid Celix bundles from a fully hermetic Bazel bu
 
 **v0.1.0 released.**  
 **v0.2.0 in progress** — adds the `celix_c_bundle` / `celix_cpp_bundle` convenience macros
-(single call that also creates the activator shared library), a hermetically built real-Celix
-C++ example (`examples/hello_cxx`), and expanded analysis + integration test coverage.
+(single call that also creates the activator shared library), hermetically built real-Celix
+C and C++ examples (`examples/hello_c`, `examples/hello_cxx`), and expanded analysis + integration test coverage.
 
 The ruleset is not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) —
 BCR publication is planned for v1.0. Use it via `local_path_override` or `git_override` (pinned
@@ -283,7 +283,7 @@ The generated HTML reference will be available at:
 | Version | Status       | Focus                                                    |
 |---------|--------------|----------------------------------------------------------|
 | 0.1     | Done         | Packaging rule only (existing `cc_shared_library` → zip) |
-| 0.2     | In progress  | Convenience macros (`celix_c_bundle`/`celix_cpp_bundle`) + real-Celix C++ example |
+| 0.2     | In progress  | Convenience macros (`celix_c_bundle`/`celix_cpp_bundle`) + real-Celix C & C++ examples |
 | 0.3     | Planned      | Basic `celix_container` / launcher support               |
 | 0.4     | Planned      | Version compatibility tests                              |
 | 1.0     | Planned      | Stable API, BCR publication                              |

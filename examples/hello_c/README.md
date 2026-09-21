@@ -1,49 +1,76 @@
-# hello_c — minimal Celix bundle example
+# hello_c — C Celix bundle example
 
-This example demonstrates how to create a Celix bundle from a C activator
-using the `celix_bundle` rule.
+This example builds a real Apache Celix bundle from a C activator, linking
+against a **hermetically built** `@celix//:framework` (fetched and compiled
+natively by `rules_celix` — no system Celix, no CMake).
 
-## Prerequisites
+This example is part of the CI `build_test` matrix and is built on both
+**Linux** (`ubuntu-latest`) and **macOS** (`macos-latest`), so a regression in
+the real-Celix path (or in `.dylib` packaging) is caught automatically.
 
-You need Apache Celix headers and the Celix framework library available in
-your build. This repository does not vendor Celix — you must provide it.
+## Pinned Celix version
 
-Common approaches:
-- Build Celix from source using [`rules_foreign_cc`](https://github.com/bazel-contrib/rules_foreign_cc)
-- Use a pre-built sysroot or tarball via `http_archive`
-- Vendor the Celix source tree as a `cc_library` pointing at `libcelix`
+The framework is pinned to **Apache Celix 2.4.0** (`rel/celix-2.4.0`) via the
+`celix_deps` bzlmod module extension in
+[`third_party/celix/upstream.bzl`](../../third_party/celix/upstream.bzl). A 3.x
+pin would switch Celix to its JSON manifest format, which is out of scope for
+this example (see the ruleset's `//celix:default_runtime`).
 
-## How to use in your project
+The Celix 2.4.0 framework hard-requires `libuuid` and `libzip` (+`zlib` for
+DEFLATE). These are also fetched and built natively:
 
-1. Add `rules_celix` to your `MODULE.bazel` as described in the
-   [root README](../../README.md).
+- `@zlib` — vendored zlib 1.3.1
+- `@libzip` — vendored libzip 1.10.1 (config in `third_party/libzip/`)
+- `uuid` — the framework only needs 3 RFC 4122 routines
+  (`uuid_generate`/`uuid_parse`/`uuid_unparse`), provided by the miniature
+  hermetic library in [`third_party/celix/uuid`](../../third_party/celix/uuid)
+  instead of a system libuuid
 
-2. Create a `cc_shared_library` for your activator (as shown in this
-   example's `BUILD.bazel`).
+## Load path
 
-3. Update the `deps` in `cc_shared_library` to point to your real Celix
-   framework target, for example:
+The activator includes the Celix C API via the framework's exported includes:
 
-   ```python
-   deps = ["@celix//:framework"],
-   ```
-
-4. Build the bundle:
-
-   ```
-   bazel build //path/to:hello_bundle
-   ```
-
-## What the bundle contains
-
-```
-META-INF/MANIFEST.MF        # OSGi/Celix manifest headers
-libhello_activator.so       # (or .dylib on macOS)
+```c
+#include <celix_bundle_activator.h>   // CELIX_GEN_BUNDLE_ACTIVATOR
 ```
 
-## Note
+Only the public load path is used in the BUILD file:
 
-This example is **documentation-oriented**: it shows the exact pattern a
-user would follow, but a working build requires the Celix framework to be
-resolved. In the repository's test suite, most tests use the analysis-test
-approach rather than full runtime, avoiding this dependency.
+```python
+load("//celix:defs.bzl", "celix_c_bundle")
+
+celix_c_bundle(
+    name = "hello_bundle",
+    srcs = ["src/hello_activator.c"],
+    deps = ["@celix//:framework"],
+    symbolic_name = "org.example.hello",
+    version = "1.0.0",
+    bundle_name = "Hello World Bundle",
+)
+```
+
+## Building
+
+```
+bazel build @celix//:framework
+bazel build //examples/hello_c:hello_bundle
+```
+
+The resulting `bazel-bin/examples/hello_c/hello_bundle.zip` is a valid Celix
+bundle whose first entry is `META-INF/MANIFEST.MF` (carrying
+`Bundle-SymbolicName: org.example.hello`) followed by
+`libhello_bundle_activator.so` (`.dylib` on macOS). Verify with:
+
+```
+unzip -l bazel-bin/examples/hello_c/hello_bundle.zip
+```
+
+## How it works
+
+The activator implements the Celix C bundle-activator contract: `activator_start`
+/`activator_stop` callbacks receive the bundle context and print a hello /
+goodbye message. `CELIX_GEN_BUNDLE_ACTIVATOR` generates the required C entry
+points (`celix_bundleActivator_create/start/stop/destroy`) for the Celix
+framework to invoke.
+
+The C++ twin of this example lives at [`examples/hello_cxx`](../hello_cxx/).
