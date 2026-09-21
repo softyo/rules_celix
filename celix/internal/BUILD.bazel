@@ -13,10 +13,14 @@
 # limitations under the License.
 
 # Private implementation — do not load from outside rules_celix.
+# //tests may load the pure manifest helpers for unit testing.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
-package(default_visibility = ["//celix:__subpackages__"])
+package(default_visibility = [
+    "//celix:__subpackages__",
+    "//tests:__pkg__",
+])
 
 # bzl_library targets required by stardoc for transitive .bzl resolution.
 bzl_library(

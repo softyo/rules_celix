@@ -51,13 +51,13 @@ def _parse_version(version_str):
         parts.append(0)
     return tuple(parts[:3])
 
-def _get_manifest_format(celix_version_str):
+def get_manifest_format(celix_version_str):
     """Return 'properties' for Celix < 3.0.0, 'json' for >= 3.0.0."""
     if _parse_version(celix_version_str) >= _VERSION_TO_MANIFEST_FORMAT:
         return "json"
     return "properties"
 
-def _get_manifest_version(celix_version_str):
+def get_manifest_version(celix_version_str):
     """Return the CELIX_BUNDLE_MANIFEST_VERSION string for the JSON format.
 
     For Celix 3.0.0, this is '2.0.0' (per the upstream MANIFEST.json.in template).
@@ -88,7 +88,7 @@ def generate_manifest(ctx, private_lib_names = []):
             format: string — 'properties' or 'json'.
     """
     celix_version = ctx.attr.celix[CelixRuntimeInfo].celix_version
-    fmt = _get_manifest_format(celix_version)
+    fmt = get_manifest_format(celix_version)
 
     bundle_name = ctx.attr.bundle_name if getattr(ctx.attr, "bundle_name", None) else ctx.attr.symbolic_name
 
@@ -102,7 +102,7 @@ def _generate_manifest_properties(ctx, bundle_name, private_lib_names):
     manifest = ctx.actions.declare_file("%s.MANIFEST.MF" % ctx.label.name)
     ctx.actions.write(
         output = manifest,
-        content = _format_manifest_properties(
+        content = format_manifest_properties(
             symbolic_name = ctx.attr.symbolic_name,
             version = ctx.attr.version,
             bundle_name = bundle_name,
@@ -118,10 +118,10 @@ def _generate_manifest_json(ctx, celix_version, bundle_name, private_lib_names):
     """Generate a META-INF/MANIFEST.json file with CELIX_BUNDLE_* headers."""
     archive_path = "META-INF/MANIFEST.json"
     manifest = ctx.actions.declare_file("%s.MANIFEST.json" % ctx.label.name)
-    manifest_version = _get_manifest_version(celix_version)
+    manifest_version = get_manifest_version(celix_version)
     ctx.actions.write(
         output = manifest,
-        content = _format_manifest_json(
+        content = format_manifest_json(
             symbolic_name = ctx.attr.symbolic_name,
             version = ctx.attr.version,
             bundle_name = bundle_name,
@@ -165,7 +165,11 @@ def _wrap_value_lines(key, value, wrap_col = 72):
     return out
 
 def _wrap_into_lines(remaining, width, continuation_width):
-    """Recursively split a header value into wrapped line chunks.
+    """Split a header value into wrapped line chunks.
+
+    Starlark forbids recursion and `while` loops, so the chunking runs as a
+    bounded iteration over `range`. The first chunk uses `width`; subsequent
+    chunks use `continuation_width`, preserving OSGi's 72-column shape.
 
     Args:
         remaining: string — the value portion still to place.
@@ -176,15 +180,21 @@ def _wrap_into_lines(remaining, width, continuation_width):
     Returns:
         list of strings: value chunks, one per emitted line.
     """
+    lines = []
     if remaining == "":
-        return []
-    chunk = remaining[:width]
-    rest = remaining[width:]
-    if rest == "":
-        return [chunk]
-    return [chunk] + _wrap_into_lines(rest, continuation_width, continuation_width)
+        return lines
+    lines.append(remaining[:width])
+    remaining = remaining[width:]
+    count = len(remaining)
+    if count == 0:
+        return lines
+    chunks = (count - 1) // continuation_width + 1
+    for _ in range(chunks):
+        lines.append(remaining[:continuation_width])
+        remaining = remaining[continuation_width:]
+    return lines
 
-def _format_manifest_properties(symbolic_name, version, bundle_name, description, group, private_lib_names, headers):
+def format_manifest_properties(symbolic_name, version, bundle_name, description, group, private_lib_names, headers):
     """Format manifest headers into the MANIFEST.MF text (OSGi properties).
 
     Args:
@@ -245,7 +255,7 @@ def _json_string(value):
             out += ch
     return out + '"'
 
-def _format_manifest_json(symbolic_name, version, bundle_name, manifest_version, description, group, private_lib_names, headers):
+def format_manifest_json(symbolic_name, version, bundle_name, manifest_version, description, group, private_lib_names, headers):
     """Format manifest headers into the MANIFEST.json text (Celix 3.x JSON).
 
     Builds an ordered list of (key, value) pairs and joins them once, avoiding

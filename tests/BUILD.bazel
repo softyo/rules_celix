@@ -15,6 +15,7 @@
 load(":celix_bundle_test.bzl", "celix_bundle_analysis_test_suite")
 load(":celix_convenience_test.bzl", "celix_convenience_analysis_test_suite")
 load(":celix_runtime_test.bzl", "celix_runtime_analysis_test_suite")
+load(":manifest_test.bzl", "manifest_test_suite")
 
 package(default_testonly = True)
 
@@ -30,6 +31,10 @@ celix_runtime_analysis_test_suite(
     name = "celix_runtime_test",
 )
 
+manifest_test_suite(
+    name = "manifest_test",
+)
+
 test_suite(
     name = "all_tests",
     tests = [
@@ -43,6 +48,7 @@ test_suite(
         ":celix_convenience_test_provider_c",
         ":celix_convenience_test_provider_cpp",
         ":celix_runtime_test_provider",
+        ":manifest_test",
         "//tests/integration:validate_bundle_default_name_test",
         "//tests/integration:validate_bundle_full_test",
         "//tests/integration:validate_bundle_no_activator_test",
