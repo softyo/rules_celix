@@ -56,6 +56,7 @@ rules_celix/
 ├── examples/                 # runnable, tested samples (hello_c, hello_cxx, …)
 ├── tests/                    # analysistest + integration tests
 ├── tools/                    # hermetic helper binaries (celix_zip.py packaging tool)
+├── docs/                     # release + contribution docs (releasing.md)
 └── .bcr/                     # BCR submission templates (metadata, source, presubmit)
 ```
 
