@@ -14,7 +14,7 @@
 
 module(
     name = "rules_celix",
-    version = "0.1.0",
+    version = "0.2.0",
 )
 
 # Format: https://github.com/bazelbuild/bazel/wiki/Module-Dependencies
