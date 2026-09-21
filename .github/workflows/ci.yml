@@ -24,6 +24,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -108,3 +109,27 @@ jobs:
             test -f "$f" || { echo "Missing BCR template: $f"; exit 1; }
           done
           echo "All BCR templates present."
+
+  # ---------------------------------------------------------------------
+  # Release gate — runs on tag pushes (v*) so a release tag cannot
+  # be cut while the tree is broken.
+  # ---------------------------------------------------------------------
+  release:
+    name: "release gate (tag ${{ github.ref_name }})"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.7.0
+        with:
+          bazel-file: .bazelversion
+          sync-with-bazelrc: false
+
+      - name: Bazel build
+        run: bazel build //...
+
+      - name: Bazel test
+        run: bazel test //...
