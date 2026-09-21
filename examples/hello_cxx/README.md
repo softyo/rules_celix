@@ -19,7 +19,7 @@ this example (see the ruleset's `//celix:default_runtime`).
 The Celix 2.4.0 framework hard-requires `libuuid` and `libzip` (+`zlib` for
 DEFLATE). These are also fetched and built natively:
 
-- `@zlib` — vendored zlib 1.3
+- `@zlib` — vendored zlib 1.3.1
 - `@libzip` — vendored libzip 1.10.1 (config in `third_party/libzip/`)
 - `uuid` — the framework only needs 3 RFC 4122 routines
   (`uuid_generate`/`uuid_parse`/`uuid_unparse`), provided by the miniature

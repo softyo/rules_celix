@@ -51,11 +51,11 @@ rules_celix/
 │       ├── bundle_impl.bzl
 │       ├── cc.bzl            # shared-library helpers (create_activator_shared_library, …)
 │       ├── manifest.bzl      # MANIFEST.MF generation logic
-│       └── zip.bzl           # packaging helpers (prefer rules_pkg)
+│       └── zip.bzl           # packaging helpers (manifest-first zip via tools/celix_zip.py)
 ├── third_party/              # hermetic native builds (Celix, libzip, zlib, uuid)
 ├── examples/                 # runnable, tested samples (hello_c, hello_cxx, …)
 ├── tests/                    # analysistest + integration tests
-├── tools/                    # optional helper binaries / scripts
+├── tools/                    # hermetic helper binaries (celix_zip.py packaging tool)
 └── .bcr/                     # BCR submission templates (metadata, source, presubmit)
 ```
 
