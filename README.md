@@ -213,6 +213,12 @@ The packaging step ensures the manifest is the first entry in the zip (Celix req
 | `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, and activator |
 | `CelixRuntimeInfo`    | Provider carrying the targeted Celix runtime version |
 
+All symbols above are loaded from a single file, `@rules_celix//celix:defs.bzl`.
+
+```python
+load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_c_bundle", "celix_cpp_bundle", "celix_runtime", "CelixBundleInfo", "CelixRuntimeInfo")
+```
+
 See [`celix/defs.bzl`](celix/defs.bzl) for the authoritative surface. Additional helpers (`celix_container`, richer macros) are planned.
 
 ### Targeting Celix 3.x
