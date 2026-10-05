@@ -172,3 +172,42 @@ py_test(
     ],
     main = "validate_bundle.py",
 )
+
+# Validates a celix_container's bundle layout at build time.
+# The container's bundle zips land at <package dir>/bundles/..., so
+# `$(rootpath ...)` of the source bundles gives the package dir to check.
+py_test(
+    name = "validate_container_test",
+    srcs = ["validate_container.py"],
+    args = [
+        "--bundle",
+        "$(rootpath //tests/testdata:test_bundle)",
+        "com.example.test",
+        "--bundle",
+        "$(rootpath //tests/testdata:test_bundle_no_activator)",
+        "com.example.no_activator",
+    ],
+    data = [
+        "//tests/testdata:test_bundle",
+        "//tests/testdata:test_bundle_no_activator",
+        "//tests/testdata:test_container",
+    ],
+    main = "validate_container.py",
+    deps = ["//tools:celix_zip_lib"],
+)
+
+py_test(
+    name = "validate_container_renamed_test",
+    srcs = ["validate_container.py"],
+    args = [
+        "--bundle",
+        "$(rootpath //tests/testdata:test_bundle_full)",
+        "com.example.full",
+    ],
+    data = [
+        "//tests/testdata:test_bundle_full",
+        "//tests/testdata:test_container_renamed",
+    ],
+    main = "validate_container.py",
+    deps = ["//tools:celix_zip_lib"],
+)

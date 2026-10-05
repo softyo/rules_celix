@@ -12,19 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""C++ bundle example: a real Celix activator compiled and linked against the
-hermetically built `@celix//:framework`.
+"""Container example: assembles the C and C++ hello bundles into one
+deployable Celix container tree (bundles/ with one zip per bundle).
 """
 
-load("//celix:defs.bzl", "celix_cpp_bundle")
+load("@rules_celix//celix:defs.bzl", "celix_container")
 
-celix_cpp_bundle(
-    name = "hello_bundle",
-    srcs = ["src/hello_activator.cc"],
-    bundle_name = "Hello CXX Bundle",
-    copts = ["-std=c++17"],
-    symbolic_name = "org.example.hello_cxx",
-    version = "1.0.0",
-    visibility = ["//visibility:public"],
-    deps = ["@celix//:framework"],
+celix_container(
+    name = "hello_container",
+    bundles = [
+        "//examples/hello_c:hello_bundle",
+        "//examples/hello_cxx:hello_bundle",
+    ],
 )

@@ -33,15 +33,27 @@ while still producing a deterministic (fixed-timestamp) zip.  The timestamp
 used (315532800 = 1980-01-01) is the same ZIP epoch used by rules_pkg and
 the broader reproducible-builds community.
 
-Usage:
+The tool has two independent modes:
+
+1. Bundle assembly (--manifest mode):
     celix_zip.py \
         --manifest <manifest_path> \
         --manifest-path <manifest_archive_path> \
         --output <output_zip_path> \
         [--add <src> --dest <archive_path> --mode <octal_mode>] ...
+
+2. Copy mode (--copy), used by celix_container to materialize each bundle
+   zip as a real standalone file under bundles/.  Bytes are copied verbatim
+   (no re-compression), so determinism is inherited from the source bundle;
+   every copied file is then verified to be a valid deterministic Celix
+   bundle zip (manifest first, entries at the fixed ZIP epoch).
+    celix_zip.py --copy <src_zip> <dest_zip> [--copy <src_zip> <dest_zip>] ...
+
+The two modes are mutually exclusive.
 """
 
 import os
+import shutil
 import sys
 import zipfile
 
@@ -86,21 +98,31 @@ def _add_file(zf, file_path, archive_path, permissions):
 
 
 def _parse_args(args):
-    """Parse the --manifest/--manifest-path/--output and repeated --add flags.
+    """Parse the --manifest/--manifest-path/--output --add and --copy flags.
+
+    The bundle-assembly flags (--manifest/--manifest-path/--output/--add) and
+    the --copy pairs are mutually exclusive modes.
 
     Returns:
-        tuple (manifest_path, manifest_archive_path, output_zip_path, entries)
-        where entries is a list of (src, dest, mode_int).
+        tuple (manifest_path, manifest_archive_path, output_zip_path, entries,
+        copies) where entries is a list of (src, dest, mode_int) and copies is
+        a list of (src, dest) file pairs.
     """
     manifest_path = None
     manifest_archive_path = None
     output_zip_path = None
     entries = []
+    copies = []
 
     i = 0
     while i < len(args):
         a = args[i]
-        if a == "--manifest":
+        if a == "--copy":
+            src = _value(args, i, a)
+            dest = _value(args, i + 1, a)
+            copies.append((src, dest))
+            i += 3
+        elif a == "--manifest":
             manifest_path = _value(args, i, a)
             i += 2
         elif a == "--manifest-path":
@@ -124,6 +146,11 @@ def _parse_args(args):
         else:
             die("Unknown argument: %s" % a)
 
+    if copies:
+        if entries or manifest_path or manifest_archive_path or output_zip_path is not None:
+            die("--copy cannot be mixed with --manifest/--manifest-path/--output/--add")
+        return None, None, None, [], copies
+
     if manifest_path is None:
         die("Missing required --manifest argument")
     if manifest_archive_path is None:
@@ -131,7 +158,7 @@ def _parse_args(args):
     if output_zip_path is None:
         die("Missing required --output argument")
 
-    return manifest_path, manifest_archive_path, output_zip_path, entries
+    return manifest_path, manifest_archive_path, output_zip_path, entries, []
 
 
 def _check_collisions(manifest_archive_path, entries):
@@ -148,8 +175,82 @@ def _check_collisions(manifest_archive_path, entries):
         seen.add(dest)
 
 
+def _check_bundle_zip(path):
+    """Verify a copied file is a valid deterministic Celix bundle zip.
+
+    Fails loudly if the file is not a zip, lacks a manifest as the first entry,
+    or contains any entry outside the fixed ZIP epoch.  This is the contract
+    enforcement for celix_container: it only accepts bundles produced by the
+    hermetic celix_zip --manifest path.  Delegates to validate_bundle_zip so
+    consumers (e.g. integration tests) share the same contract.
+    """
+    error = validate_bundle_zip(path)
+    if error:
+        die(error)
+
+
+def validate_bundle_zip(path):
+    """Return None if path is a valid deterministic Celix bundle zip, else an error string.
+
+    Validates that path is a zip archive whose first entry is the manifest and
+    whose entries all carry the fixed ZIP epoch.  This is the shared
+    bundle-validity contract for both the copy execution path and consumers
+    such as the container integration tests.
+
+    Args:
+        path: string path to the zip file.
+
+    Returns:
+        string error message, or None when the file is valid.
+    """
+    if not os.path.isfile(path):
+        return "Copied file not found: %s" % path
+    try:
+        zf = zipfile.ZipFile(path)
+    except zipfile.BadZipFile as e:
+        return "Not a valid zip archive: %s (%s)" % (path, e)
+    try:
+        entries = zf.infolist()
+        if not entries:
+            return "Empty zip archive: %s" % path
+        first = entries[0].filename
+        if first not in ("META-INF/MANIFEST.MF", "META-INF/MANIFEST.json"):
+            return "First zip entry of %s must be the manifest, got '%s'" % (path, first)
+        for entry in entries:
+            if entry.date_time != ZIP_EPOCH:
+                return "Entry '%s' of %s has non-deterministic timestamp %s" % (
+                    entry.filename,
+                    path,
+                    entry.date_time,
+                )
+    finally:
+        zf.close()
+    return None
+
+
+def run_copies(copies):
+    """Copy each (src, dest) pair byte-for-byte and verify the result.
+
+    Args:
+        copies: list of (src, dest) file pairs.
+    """
+    for (src, dest) in copies:
+        if not os.path.isfile(src):
+            die("Copy source not found: %s" % src)
+    for (src, dest) in copies:
+        try:
+            shutil.copyfile(src, dest)
+        except OSError as e:
+            die("Failed to copy '%s' to '%s': %s" % (src, dest, e))
+        _check_bundle_zip(dest)
+
+
 def main():
-    manifest_path, manifest_archive_path, output_zip_path, entries = _parse_args(sys.argv[1:])
+    manifest_path, manifest_archive_path, output_zip_path, entries, copies = _parse_args(sys.argv[1:])
+
+    if copies:
+        run_copies(copies)
+        return
 
     if not os.path.isfile(manifest_path):
         die("Manifest file not found: %s" % manifest_path)

@@ -29,7 +29,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 |-----------|-------------|-------------|
 | **0.1**   | Done        | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
 | **0.2**   | Done        | `celix_c_bundle` / `celix_cpp_bundle` convenience macros (`srcs`-only, no explicit `activator` — that stayed `celix_bundle`'s job), real-Celix C and C++ examples, and the shared-library refactor in `celix/internal/cc.bzl`.
-| **0.3**   | Planned     | Basic `celix_container`-style rule or documented pattern for a runnable launcher that embeds a set of bundles. |
+| **0.3**   | In progress  | `celix_container` rule: statically assembles a container from `celix_bundle` targets (`bundles/<symbolic_name>.zip` real-file copies) + `CelixContainerInfo` provider. Launcher executable/config generation and tarball assembly are later steps. |
 | **0.4**   | Planned     | Version compatibility tests |
 | **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates. |
 
@@ -45,11 +45,14 @@ rules_celix/
 │   ├── BUILD.bazel
 │   ├── defs.bzl              # re-exports (load this from user BUILD files)
 │   ├── bundle.bzl            # celix_bundle rule / macro entry point
+│   ├── container.bzl         # celix_container macro entry point
 │   ├── runtime.bzl           # Celix runtime version contract
-│   ├── providers.bzl         # CelixBundleInfo and related providers
+│   ├── providers.bzl         # CelixBundleInfo/CelixContainerInfo and related providers
 │   └── internal/             # implementation details — do not load from outside
 │       ├── bundle_impl.bzl
 │       ├── cc.bzl            # shared-library helpers (create_activator_shared_library, …)
+│       ├── container.bzl     # container layout helpers (bundle_zip_archive_path, …)
+│       ├── container_impl.bzl # celix_container rule impl (copy-assembly loop)
 │       ├── manifest.bzl      # MANIFEST.MF generation logic
 │       └── zip.bzl           # packaging helpers (manifest-first zip via tools/celix_zip.py)
 ├── third_party/              # hermetic native builds (Celix, libzip, zlib, uuid)
@@ -66,6 +69,7 @@ rules_celix/
 |-----------------------------------|-------------------------------|
 | Public rule attributes / docs     | `celix/bundle.bzl`, `celix/defs.bzl` |
 | Convenience macros (`celix_c_bundle` / `celix_cpp_bundle`) | `celix/bundle.bzl` (note: these are `srcs`-only; the explicit `activator` forward path is `celix_bundle`'s job) |
+| Container layout / `celix_container` | `celix/container.bzl`, `celix/internal/container.bzl`, `celix/internal/container_impl.bzl` |
 | Activator shared-library wiring   | `celix/internal/cc.bzl`       |
 | Manifest header generation        | `celix/internal/manifest.bzl` |
 | Zip assembly / ordering           | `celix/internal/zip.bzl`      |

@@ -15,6 +15,7 @@
 load(":celix_bundle_test.bzl", "celix_bundle_analysis_test_suite")
 load(":celix_convenience_test.bzl", "celix_convenience_analysis_test_suite")
 load(":celix_runtime_test.bzl", "celix_runtime_analysis_test_suite")
+load(":container_test.bzl", "celix_container_analysis_test_suite")
 load(":manifest_test.bzl", "manifest_test_suite")
 
 package(default_testonly = True)
@@ -31,6 +32,10 @@ celix_runtime_analysis_test_suite(
     name = "celix_runtime_test",
 )
 
+celix_container_analysis_test_suite(
+    name = "celix_container_test",
+)
+
 manifest_test_suite(
     name = "manifest_test",
 )
@@ -42,6 +47,10 @@ test_suite(
         ":celix_bundle_test_missing_activator",
         ":celix_bundle_test_no_activator",
         ":celix_bundle_test_provider",
+        ":celix_container_test_duplicate_symbolic_name_fails",
+        ":celix_container_test_non_bundle_fails",
+        ":celix_container_test_provider",
+        ":celix_container_test_renamed",
         ":celix_convenience_test_copts_linkopts",
         ":celix_convenience_test_includes",
         ":celix_convenience_test_missing_srcs",
@@ -54,6 +63,8 @@ test_suite(
         "//tests/integration:validate_bundle_no_activator_test",
         "//tests/integration:validate_bundle_test",
         "//tests/integration:validate_bundle_v3_json_test",
+        "//tests/integration:validate_container_renamed_test",
+        "//tests/integration:validate_container_test",
         "//tests/integration:validate_macro_c_bundle_test",
         "//tests/integration:validate_macro_cpp_bundle_test",
         "//tests/integration:validate_macro_flags_bundle_test",

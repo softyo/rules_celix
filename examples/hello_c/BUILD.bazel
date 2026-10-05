@@ -24,5 +24,6 @@ celix_c_bundle(
     bundle_name = "Hello World Bundle",
     symbolic_name = "org.example.hello",
     version = "1.0.0",
+    visibility = ["//visibility:public"],
     deps = ["@celix//:framework"],
 )

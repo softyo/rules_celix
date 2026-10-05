@@ -49,16 +49,24 @@ bzl_library(
     ],
 )
 
+bzl_library(
+    name = "container_bzl",
+    srcs = ["container.bzl"],
+    deps = ["//celix/internal:container_impl_bzl"],
+)
+
 stardoc(
     name = "celix_stardoc",
     out = "celix_api.html",
     input = "defs.bzl",
     deps = [
         ":bundle_bzl",
+        ":container_bzl",
         ":providers_bzl",
         ":runtime_bzl",
         "//celix/internal:bundle_impl_bzl",
         "//celix/internal:cc_bzl",
+        "//celix/internal:container_impl_bzl",
         "//celix/internal:manifest_bzl",
         "//celix/internal:zip_bzl",
     ],

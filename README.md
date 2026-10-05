@@ -202,6 +202,41 @@ The manifest format is determined by the Celix runtime version targeted by the `
 
 The packaging step ensures the manifest is the first entry in the zip (Celix requires this).
 
+## Assemble a container
+
+A Celix container is a launcher executable plus a `bundles/` directory.
+The `celix_container` rule assembles the deployable **contents** with each bundle zip laid out at `bundles/<symbolic_name>.zip`, exactly where Celix expects it at runtime:
+
+```python
+# BUILD.bazel
+load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_container")
+
+celix_bundle(
+    name = "hello_bundle",
+    activator = ":hello_lib",
+    symbolic_name = "org.example.hello",
+)
+
+celix_container(
+    name = "hello_container",
+    bundles = [":hello_bundle"],
+)
+```
+
+Outputs are **real, standalone files** (deterministic byte copies of the bundle zips, not symlinks), so you can copy the container tree verbatim next to a Celix executable:
+
+```bash
+./bazelw build //:hello_container
+# → bazel-bin/bundles/org.example.hello.zip   (byte-identical to the bundle zip)
+```
+
+Container outputs are package-relative, so for a target in a non-root package the zips land under `bazel-bin/<package>/bundles/` instead (as in `examples/hello_container`, which builds to `bazel-bin/examples/hello_container/bundles/`).
+
+The container lays each bundle out by its `Bundle-SymbolicName` (the stable container identity), not the bundle's target or `filename` attribute. Duplicate symbolic names within one container are rejected at analysis.
+
+The launcher executable and embedded framework configuration (`CelixContainerInfo.runner` and `CelixContainerInfo.config`) are not generated yet, they arrive in later steps.
+See [`examples/hello_container`](examples/hello_container) for a container built from the C and C++ hello bundles.
+
 ## Public API (current)
 
 | Target / symbol       | Description                                      |
@@ -209,17 +244,20 @@ The packaging step ensures the manifest is the first entry in the zip (Celix req
 | `celix_bundle`        | Core rule / macro that builds a bundle zip from an existing `cc_shared_library` (explicit-activator path) |
 | `celix_c_bundle`      | Convenience macro: compile a C activator + build a bundle in one call |
 | `celix_cpp_bundle`    | Convenience macro: compile a C++ activator + build a bundle in one call |
+| `celix_container`     | Assembles a Celix container's deployable contents from `celix_bundle` targets |
 | `celix_runtime`       | Declares a Celix runtime version contract        |
 | `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, and activator |
+| `CelixContainerInfo`  | Provider carrying the container's bundle zips (and, later, runner + config) |
 | `CelixRuntimeInfo`    | Provider carrying the targeted Celix runtime version |
 
 All symbols above are loaded from a single file, `@rules_celix//celix:defs.bzl`.
 
 ```python
-load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_c_bundle", "celix_cpp_bundle", "celix_runtime", "CelixBundleInfo", "CelixRuntimeInfo")
+load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_c_bundle", "celix_cpp_bundle", "celix_container", "celix_runtime", "CelixBundleInfo", "CelixContainerInfo", "CelixRuntimeInfo")
 ```
 
-See [`celix/defs.bzl`](celix/defs.bzl) for the authoritative surface. Additional helpers (`celix_container`, richer macros) are planned.
+See [`celix/defs.bzl`](celix/defs.bzl) for the authoritative surface.
+Additional helpers (richer `celix_container` options) are planned.
 
 ### Targeting Celix 3.x
 

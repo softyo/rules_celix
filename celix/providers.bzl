@@ -28,6 +28,20 @@ CelixBundleInfo = provider(
     },
 )
 
+# Provider that carries Celix container metadata and outputs.
+CelixContainerInfo = provider(
+    doc = "Metadata about a Celix container assembled from celix_bundle targets.",
+    fields = {
+        "runner": "File or None: the launcher executable. None in the current " +
+                  "milestone; a future step wires the Celix container executable here.",
+        "bundles": "list of File: the container's bundle zips under bundles/, in " +
+                   "the order of the 'bundles' attribute.",
+        "config": "File or None: the container configuration file. None in the current " +
+                  "milestone; a future step embeds framework properties like " +
+                  "CELIX_BUNDLES_PATH / CELIX_AUTO_START_<level> here.",
+    },
+)
+
 # Provider that describes the targeted Celix runtime version and conventions.
 CelixRuntimeInfo = provider(
     doc = "Describes a Celix runtime version and its bundle manifest conventions.",

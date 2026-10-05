@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
-load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_c_bundle", "celix_cpp_bundle", "celix_runtime")
+load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_c_bundle", "celix_container", "celix_cpp_bundle", "celix_runtime")
 
 package(
     default_testonly = True,
@@ -125,4 +125,28 @@ celix_c_bundle(
     includes = ["inc"],
     linkopts = ["-lm"],
     symbolic_name = "com.example.macro_flags",
+)
+
+# A bundle with the same symbolic name as :test_bundle, used by the
+# duplicate-symbolic-name celix_container failure test.
+celix_bundle(
+    name = "test_bundle_dup",
+    activator = ":dummy_lib",
+    symbolic_name = "com.example.test",
+)
+
+celix_container(
+    name = "test_container",
+    bundles = [
+        ":test_bundle",
+        ":test_bundle_no_activator",
+    ],
+)
+
+# Renamed bundle: the zip itself is custom_zip_name.zip (via 'filename'), but
+# the container must lay it out as bundles/com.example.full.zip because the
+# symbolic name is the stable container identity.
+celix_container(
+    name = "test_container_renamed",
+    bundles = [":test_bundle_full"],
 )
