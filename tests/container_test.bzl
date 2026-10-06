@@ -14,34 +14,69 @@
 
 """Analysis tests for the celix_container rule."""
 
+load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
 load("//celix:defs.bzl", "celix_container")
 load("//celix:providers.bzl", "CelixContainerInfo")
+load("//celix/internal:container.bzl", "format_config_properties")
+
+def _format_config_golden_impl(ctx):
+    """Golden test for the generated framework config body."""
+    env = unittest.begin(ctx)
+    asserts.equals(
+        env,
+        "CELIX_BUNDLES_PATH=bundles\n" +
+        "CELIX_FRAMEWORK_CACHE_DIR=.cache\n" +
+        "CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true\n" +
+        "CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL=info\n",
+        format_config_properties(),
+    )
+    return unittest.end(env)
+
+_format_config_golden_test = unittest.make(_format_config_golden_impl)
 
 def _test_container_provider(name):
-    """Verify a container exposes CelixContainerInfo with ordered bundle copies."""
+    """Verify a container exposes CelixContainerInfo with runner/config and ordered bundle copies.
+
+    The runner is a copy of the shared @rules_celix//tools:container_runner
+    binary (built once per repo, not compiled per container), declared in the
+    package dir as <name>_runner.
+    """
 
     def _impl(env, target):
         env.expect.that_target(target).has_provider(CelixContainerInfo)
 
         info = target[CelixContainerInfo]
 
-        # runner/config are not yet generated.
-        env.expect.that_bool(info.runner == None).equals(True)
-        env.expect.that_bool(info.config == None).equals(True)
+        # runner/config are generated Files.
+        env.expect.that_bool(info.runner != None).equals(True)
+        env.expect.that_bool(info.config != None).equals(True)
+        env.expect.that_str(info.runner.basename).contains("runner")
+        env.expect.that_str(info.config.basename).equals("config.properties")
 
         # Order follows the 'bundles' attribute.
         env.expect.that_collection(info.bundles).has_size(2)
         first = info.bundles[0].path
         second = info.bundles[1].path
-        env.expect.that_str(first).contains("bundles/com.example.test.zip")
-        env.expect.that_str(second).contains("bundles/com.example.no_activator.zip")
+        env.expect.that_str(first).contains("celix_container_test_provider_subject_runtime/bundles/com.example.test.zip")
+        env.expect.that_str(second).contains("celix_container_test_provider_subject_runtime/bundles/com.example.no_activator.zip")
 
         # Outputs are the same real files the provider carries.
         env.expect.that_target(target).default_outputs().contains(
             info.bundles[0],
         )
+
+        # The target is runnable and its runfiles carry the layout.
+        env.expect.that_target(target).executable().short_path_equals(
+            "tests/celix_container_test_provider_subject",
+        )
+        env.expect.that_target(target).runfiles().contains_at_least([
+            "_main/tests/celix_container_test_provider_subject_runner",
+            "_main/tests/celix_container_test_provider_subject_runtime/config.properties",
+            "_main/tests/celix_container_test_provider_subject_runtime/bundles/com.example.test.zip",
+            "_main/tests/celix_container_test_provider_subject_runtime/bundles/com.example.no_activator.zip",
+        ])
 
     celix_container(
         name = name + "_subject",
@@ -66,7 +101,7 @@ def _test_container_renamed(name):
 
         env.expect.that_collection(info.bundles).has_size(1)
         path = info.bundles[0].path
-        env.expect.that_str(path).contains("bundles/com.example.full.zip")
+        env.expect.that_str(path).contains("celix_container_test_renamed_subject_runtime/bundles/com.example.full.zip")
         env.expect.that_bool("custom_zip_name.zip" in path).equals(False)
 
     celix_container(
@@ -128,6 +163,10 @@ def _test_container_duplicate_symbolic_name_fails(name):
 
 def celix_container_analysis_test_suite(name):
     """Convenience macro that creates all celix_container analysis tests."""
+    unittest.suite(
+        name + "_format_config",
+        _format_config_golden_test,
+    )
     _test_container_provider(name = name + "_provider")
     _test_container_renamed(name = name + "_renamed")
     _test_container_non_bundle_fails(name = name + "_non_bundle_fails")

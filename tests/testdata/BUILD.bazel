@@ -150,3 +150,16 @@ celix_container(
     name = "test_container_renamed",
     bundles = [":test_bundle_full"],
 )
+
+# A non-testonly container fixture for the runner smoke test: py_test data
+# targets cannot transitively depend on testonly targets. It is tagged manual
+# so it is not built by `bazel build //...`.
+celix_container(
+    name = "test_container_runner_fixture",
+    bundles = [
+        ":test_bundle",
+        ":test_bundle_no_activator",
+    ],
+    tags = ["manual"],
+    visibility = ["//tests:__subpackages__"],
+)

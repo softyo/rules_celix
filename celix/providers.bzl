@@ -32,13 +32,13 @@ CelixBundleInfo = provider(
 CelixContainerInfo = provider(
     doc = "Metadata about a Celix container assembled from celix_bundle targets.",
     fields = {
-        "runner": "File or None: the launcher executable. None in the current " +
-                  "milestone; a future step wires the Celix container executable here.",
+        "runner": "File: the per-container runner executable (a copy of the " +
+                  "shared @rules_celix//tools:container_runner cc_binary, which " +
+                  "embeds the Celix framework).",
         "bundles": "list of File: the container's bundle zips under bundles/, in " +
                    "the order of the 'bundles' attribute.",
-        "config": "File or None: the container configuration file. None in the current " +
-                  "milestone; a future step embeds framework properties like " +
-                  "CELIX_BUNDLES_PATH / CELIX_AUTO_START_<level> here.",
+        "config": "File: the generated framework configuration file " +
+                  "(<name>_runtime/config.properties).",
     },
 )
 

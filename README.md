@@ -36,6 +36,11 @@ The only thing you need to provide yourself:
 - **Apache Celix headers / libraries** — available as a Bazel target in your workspace
   (this ruleset does **not** vendor Celix; see [`rules_foreign_cc`](https://github.com/bazel-contrib/rules_foreign_cc) or your own module to fetch it)
 
+Two exceptions apply:
+
+- The **runnable container** (`celix_container`) needs no consumer-side `@celix` at all — its runner is built once inside rules_celix with the framework embedded and copied into the container.
+- For bundle-activator consumers who want the same bundled framework, `@rules_celix//third_party/celix:framework` aliases `@celix//:framework` (see the `celix_deps` extension block in `MODULE.bazel` / `third_party/celix/upstream.bzl`); users supplying their own `@celix` continue to pass `@celix//:framework` directly.
+
 ## Quick start (before BCR publication)
 
 ### 1. Add the ruleset to your `MODULE.bazel`
@@ -205,7 +210,10 @@ The packaging step ensures the manifest is the first entry in the zip (Celix req
 ## Assemble a container
 
 A Celix container is a launcher executable plus a `bundles/` directory.
-The `celix_container` rule assembles the deployable **contents** with each bundle zip laid out at `bundles/<symbolic_name>.zip`, exactly where Celix expects it at runtime:
+The `celix_container` rule assembles the deployable **contents** as a runnable
+container: each bundle zip is laid out at `bundles/<symbolic_name>.zip`, exactly
+where Celix expects it at runtime, next to a generated `config.properties` and a
+copy of the shared runner binary that embeds the Celix framework:
 
 ```python
 # BUILD.bazel
@@ -223,19 +231,31 @@ celix_container(
 )
 ```
 
-Outputs are **real, standalone files** (deterministic byte copies of the bundle zips, not symlinks), so you can copy the container tree verbatim next to a Celix executable:
+The macro generates:
+
+- `:<name>` — the runnable container: a launcher + runfiles carrying a copy of the shared runner binary (`@rules_celix//tools:container_runner`), the generated `config.properties`, and the bundle zips.
+- `:<name>_config` — the generated `config.properties` (minimal and deterministic: `CELIX_BUNDLES_PATH`, `CELIX_FRAMEWORK_CACHE_DIR`, `CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true`, `CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL`).
+- `:<name>_start_sh` — an `sh_binary` wrapper for running (or copying) the container tree outside Bazel.
+
+The runner binary is built once in the rules_celix repository (where `@celix` resolves and the framework is embedded) and copied per container into the package dir as `<name>_runner` so `celix_container` needs no consumer-side `@celix`.
+You still need Celix itself for the **bundles'** activators (the `:hello_lib` above links the framework headers/library).
+To get a working framework target without declaring your own `@celix`, depend on `@rules_celix//third_party/celix:framework` (an alias to `@celix//:framework`), or declare `@celix` in your own `MODULE.bazel` and pass `@celix//:framework` directly.
+
+Run it with:
 
 ```bash
-./bazelw build //:hello_container
-# → bazel-bin/bundles/org.example.hello.zip   (byte-identical to the bundle zip)
+./bazelw run //:hello_container
 ```
 
-Container outputs are package-relative, so for a target in a non-root package the zips land under `bazel-bin/<package>/bundles/` instead (as in `examples/hello_container`, which builds to `bazel-bin/examples/hello_container/bundles/`).
+The runner boots the framework, logs `rules_celix container runner started`, and stays up until it receives a stop signal or `STOP_RUNNER=1` appears in the active `config.properties` (see `examples/hello_container`'s README).
+The cache lives in `/tmp` (`CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true`), so repeated runs stay clean and never write into the runfiles tree.
 
-The container lays each bundle out by its `Bundle-SymbolicName` (the stable container identity), not the bundle's target or `filename` attribute. Duplicate symbolic names within one container are rejected at analysis.
+Container outputs are package-relative and real files (deterministic byte copies of the bundle zips, plus the copied runner binary, not symlinks), nested under the container's runtime directory `<name>_runtime/` so the tree can be copied verbatim next to a Celix executable.
+Each bundle is laid out by its `Bundle-SymbolicName` (the stable container identity), not the bundle's target or `filename` attribute.
+Duplicate symbolic names within one container are rejected at analysis.
 
-The launcher executable and embedded framework configuration (`CelixContainerInfo.runner` and `CelixContainerInfo.config`) are not generated yet, they arrive in later steps.
-See [`examples/hello_container`](examples/hello_container) for a container built from the C and C++ hello bundles.
+Bundle start levels are not yet supported: the framework does not install or start the container's bundles until that step.
+See [`examples/hello_container`](examples/hello_container) for a runnable container built from the C and C++ hello bundles.
 
 ## Public API (current)
 
@@ -244,10 +264,10 @@ See [`examples/hello_container`](examples/hello_container) for a container built
 | `celix_bundle`        | Core rule / macro that builds a bundle zip from an existing `cc_shared_library` (explicit-activator path) |
 | `celix_c_bundle`      | Convenience macro: compile a C activator + build a bundle in one call |
 | `celix_cpp_bundle`    | Convenience macro: compile a C++ activator + build a bundle in one call |
-| `celix_container`     | Assembles a Celix container's deployable contents from `celix_bundle` targets |
+| `celix_container`     | Assembles a runnable Celix container from `celix_bundle` targets (`bazel run` boots the embedded framework via the shared runner copy) |
 | `celix_runtime`       | Declares a Celix runtime version contract        |
 | `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, and activator |
-| `CelixContainerInfo`  | Provider carrying the container's bundle zips (and, later, runner + config) |
+| `CelixContainerInfo`  | Provider carrying the container's runner, bundle zips, and config file |
 | `CelixRuntimeInfo`    | Provider carrying the targeted Celix runtime version |
 
 All symbols above are loaded from a single file, `@rules_celix//celix:defs.bzl`.
@@ -328,7 +348,7 @@ The generated HTML reference will be available at:
 |---------|--------------|----------------------------------------------------------|
 | 0.1     | Done         | Packaging rule only (existing `cc_shared_library` → zip) |
 | 0.2     | Done         | Convenience macros (`celix_c_bundle`/`celix_cpp_bundle`) + real-Celix C & C++ examples |
-| 0.3     | Planned      | Basic `celix_container` / launcher support               |
+| 0.3     | In progress   | `celix_container` runnable: hermetic runner binary, generated config, runfiles layout |
 | 0.4     | Planned      | Version compatibility tests                              |
 | 1.0     | Planned      | Stable API, BCR publication                              |
 

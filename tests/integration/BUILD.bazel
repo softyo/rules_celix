@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//celix/internal:container.bzl", "container_runner_file_name")
+
 package(default_testonly = True)
 
 # Validates a celix_bundle zip at build time.
@@ -174,12 +176,14 @@ py_test(
 )
 
 # Validates a celix_container's bundle layout at build time.
-# The container's bundle zips land at <package dir>/bundles/..., so
+# The container's bundle zips land at <package>/<name>_runtime/bundles/..., so
 # `$(rootpath ...)` of the source bundles gives the package dir to check.
 py_test(
     name = "validate_container_test",
     srcs = ["validate_container.py"],
     args = [
+        "--container-name",
+        "test_container",
         "--bundle",
         "$(rootpath //tests/testdata:test_bundle)",
         "com.example.test",
@@ -196,10 +200,36 @@ py_test(
     deps = ["//tools:celix_zip_lib"],
 )
 
+# Boots a celix_container's runner hermetically: starts the embedded Celix
+# framework from a writable copy of the generated config.properties + bundles/,
+# waits for the fixed sentinel line, writes STOP_RUNNER=1, and asserts a clean
+# exit 0.
+#
+# The runner copy is rule-internal (no <name>_runner target anymore); the test
+# derives its path from the container name + the config rootpath:
+# config sits at <pkg>/<name>_runtime/config.properties, the runner at
+# <pkg>/<name>_runner.
+py_test(
+    name = "runner_smoke_test",
+    timeout = "moderate",
+    srcs = ["runner_smoke_test.py"],
+    args = [
+        "$(rootpath //tests/testdata:test_container_runner_fixture_config)",
+        container_runner_file_name("test_container_runner_fixture"),
+    ],
+    data = [
+        "//tests/testdata:test_container_runner_fixture",
+        "//tests/testdata:test_container_runner_fixture_config",
+    ],
+    main = "runner_smoke_test.py",
+)
+
 py_test(
     name = "validate_container_renamed_test",
     srcs = ["validate_container.py"],
     args = [
+        "--container-name",
+        "test_container_renamed",
         "--bundle",
         "$(rootpath //tests/testdata:test_bundle_full)",
         "com.example.full",

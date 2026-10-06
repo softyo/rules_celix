@@ -52,7 +52,11 @@ bzl_library(
 bzl_library(
     name = "container_bzl",
     srcs = ["container.bzl"],
-    deps = ["//celix/internal:container_impl_bzl"],
+    deps = [
+        "//celix/internal:container_bzl",
+        "//celix/internal:container_impl_bzl",
+        "@bazel_skylib//rules:write_file",
+    ],
 )
 
 stardoc(

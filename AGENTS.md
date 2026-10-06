@@ -29,7 +29,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 |-----------|-------------|-------------|
 | **0.1**   | Done        | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
 | **0.2**   | Done        | `celix_c_bundle` / `celix_cpp_bundle` convenience macros (`srcs`-only, no explicit `activator` — that stayed `celix_bundle`'s job), real-Celix C and C++ examples, and the shared-library refactor in `celix/internal/cc.bzl`.
-| **0.3**   | In progress  | `celix_container` rule: statically assembles a container from `celix_bundle` targets (`bundles/<symbolic_name>.zip` real-file copies) + `CelixContainerInfo` provider. Launcher executable/config generation and tarball assembly are later steps. |
+| **0.3**   | In progress  | `celix_container` runnable (issue #8 landed): hermetic runner binary (`tools/container_runner.c` embedding `@celix//:framework`), generated `config.properties`, and per-container runtime directory `<name>_runtime/` wired as runfiles — `bazel run` boots the framework. The runner is a *single shared* `cc_binary` built once in rules_celix (where `@celix` resolves) and copied per container via `ctx.actions.copy`; `@rules_celix//third_party/celix:framework` aliases `@celix//:framework` for activator consumers. Start-level autostart (#9) and tarball assembly (#10) are later steps. |
 | **0.4**   | Planned     | Version compatibility tests |
 | **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates. |
 
@@ -85,7 +85,7 @@ rules_celix/
 1. **Hermetic by default** — no reliance on system `cmake`, `jar`, or a pre-installed Celix for the packaging step itself.
 2. **Thin public surface** — prefer a small `celix_bundle` (+ later `celix_container`) over many specialised rules.
 3. **Reuse existing rules** — whenever possible: compilation via `rules_cc`; avoid reinventing zip or C/C++ toolchains. Note: zip assembly intentionally uses the small custom tool in `tools/celix_zip.py` instead of `rules_pkg`'s `pkg_zip` (entry sorting would break Celix's manifest-first requirement — see the tool's header).
-4. **Celix is a peer, not a dependency of the ruleset** — users supply Celix headers/libraries; the ruleset only produces the bundle artifact.
+4. **Celix is a peer, not a dependency of the ruleset** — users supply Celix headers/libraries; the ruleset only produces the bundle artifact. The one exception is the runnable `celix_container`: its runner is built inside rules_celix with the framework compiled in (the container is the one place the ruleset ships the framework), kept behind `@rules_celix//third_party/celix:framework`.
 5. **Deterministic output** — same inputs → bit-identical (or at least semantically identical) zip; `META-INF/MANIFEST.MF` must be the first entry.
 6. **bzlmod-first** — `MODULE.bazel` is authoritative; keep any WORKSPACE support minimal and transitional.
 

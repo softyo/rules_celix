@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Hermetic tools for Celix bundle packaging."""
+"""Hermetic tools for Celix bundle packaging and container running."""
+
+load("@rules_cc//cc:defs.bzl", _cc_binary = "cc_binary")
 
 package(default_visibility = ["//celix:__subpackages__"])
 
@@ -30,4 +32,34 @@ py_binary(
     srcs = ["celix_zip.py"],
     main = "celix_zip.py",
     visibility = ["//celix:__subpackages__"],
+)
+
+# Hermetic byte copy tool for celix_container's runner copy.  The copy action
+# must not shell out to host `cp`; like celix_zip, this carries no shell
+# dependency and works identically on Linux and macOS.
+py_binary(
+    name = "file_copy",
+    srcs = ["file_copy.py"],
+    main = "file_copy.py",
+    visibility = ["//celix:__subpackages__"],
+)
+
+# Hermetic embedding runner for celix_container: a thin synchronous binary that
+# creates/starts the Celix framework from the generated config.properties and
+# blocks until a stop signal or STOP_RUNNER=1 marker. See tools/container_runner.c
+# for the full contract.
+#
+# This is the SINGLE shared runner binary: every celix_container target in any
+# consumer package copies it (built once in rules_celix's repo, where @celix
+# resolves) into its own <name>_runner file. The runner references the
+# framework's public API directly, so linking the static framework archive pulls
+# in exactly the objects needed — no whole-archive wrappers or platform
+# force-load flags required (verified by the integration smoke test on Linux;
+# the framework's own -ldl/-lpthread linkopts are inherited through the deps
+# edge).
+cc_binary(
+    name = "container_runner",
+    srcs = ["container_runner.c"],
+    visibility = ["//celix:__subpackages__"],
+    deps = ["@celix//:framework"],
 )

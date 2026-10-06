@@ -13,7 +13,10 @@
 # limitations under the License.
 
 """Container example: assembles the C and C++ hello bundles into one
-deployable Celix container tree (bundles/ with one zip per bundle).
+runnable Celix container — a copy of the shared rules_celix runner (embedding
+the hermetically built framework), a generated config.properties, and a
+bundles/ directory laid out under the container's runtime directory.
+`bazel run` boots the framework.
 """
 
 load("@rules_celix//celix:defs.bzl", "celix_container")

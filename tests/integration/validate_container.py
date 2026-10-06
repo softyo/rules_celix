@@ -46,20 +46,27 @@ def fail(msg):
     sys.exit(1)
 
 
-def check_container_bundle(source_bundle, symbolic_name):
+def check_container_bundle(source_bundle, symbolic_name, container_name):
     """Validate one bundle laid out in the container.
 
     Args:
         source_bundle: the source bundle zip rootpath (resolved relative to the
             runfiles root, which is also the test CWD).
         symbolic_name: the bundle's Bundle-SymbolicName; the container path is
-            <package dir>/bundles/<symbolic_name>.zip.
+            <package dir>/<container_name>_runtime/bundles/<symbolic_name>.zip.
+        container_name: the celix_container target name, whose outputs nest
+            under the container's runtime directory.
     """
     if not os.path.isfile(source_bundle):
         fail("Source bundle not found: %s" % source_bundle)
 
     package_dir = os.path.dirname(source_bundle)
-    dest = os.path.join(package_dir, "bundles", symbolic_name + ".zip")
+    dest = os.path.join(
+        package_dir,
+        container_name + "_runtime",
+        "bundles",
+        symbolic_name + ".zip",
+    )
 
     if not os.path.isfile(dest):
         fail("Container is missing expected bundle %s" % dest)
@@ -86,23 +93,36 @@ def check_container_bundle(source_bundle, symbolic_name):
 
 
 def main():
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         fail(
             "Usage: validate_container.py "
-            "--bundle <source_bundle_rootpath> <symbolic_name> ...",
+            "[--bundle <source_bundle_rootpath> <symbolic_name>]... "
+            "--container-name <celix_container target name>",
         )
 
+    container_name = None
     i = 1
     while i < len(sys.argv):
         a = sys.argv[i]
-        if a != "--bundle":
+        if a == "--bundle":
+            source = sys.argv[i + 1] if i + 1 < len(sys.argv) else None
+            symbolic_name = sys.argv[i + 2] if i + 2 < len(sys.argv) else None
+            if source is None or symbolic_name is None:
+                fail("Missing value for --bundle")
+            if container_name is None:
+                fail("--container-name must precede --bundle arguments")
+            check_container_bundle(source, symbolic_name, container_name)
+            i += 3
+        elif a == "--container-name":
+            container_name = sys.argv[i + 1] if i + 1 < len(sys.argv) else None
+            if container_name is None:
+                fail("Missing value for --container-name")
+            i += 2
+        else:
             fail("Unknown argument: %s" % a)
-        source = sys.argv[i + 1] if i + 1 < len(sys.argv) else None
-        symbolic_name = sys.argv[i + 2] if i + 2 < len(sys.argv) else None
-        if source is None or symbolic_name is None:
-            fail("Missing value for --bundle")
-        check_container_bundle(source, symbolic_name)
-        i += 3
+
+    if container_name is None:
+        fail("Missing required --container-name")
 
     print("PASS: container contents validated.")
 
