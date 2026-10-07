@@ -14,20 +14,24 @@ The `celix_container` macro emits a copy of the shared runner binary (`@rules_ce
 └── hello_container_runtime/                 # the container's runtime directory
     ├── config.properties                    # generated framework configuration
     └── bundles/
-        ├── org.example.hello.zip            # C hello bundle (byte-identical copy)
-        └── org.example.hello_cxx.zip        # C++ hello bundle
+        ├── org.example.hello.zip            # C hello bundle (auto-started, level 1)
+        └── org.example.hello_cxx.zip        # C++ hello bundle (install-only, never started)
 ```
 
-Under `bazel run` the process working directory is the container's package directory, and the launcher passes `hello_container_runtime/` to the runner, so the framework loads `config.properties` and the `bundles/` directory relative to it. The generated `config.properties` is minimal and hermetic:
+Under `bazel run` the process working directory is the container's package directory, and the launcher passes `hello_container_runtime/` to the runner, so the framework loads `config.properties` and the `bundles/` directory relative to it. The generated `config.properties` is deterministic and carries the bundles' start levels:
 
 ```
 CELIX_BUNDLES_PATH=bundles
 CELIX_FRAMEWORK_CACHE_DIR=.cache
 CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true
 CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL=info
+CELIX_AUTO_START_1=bundles/org.example.hello.zip
+CELIX_AUTO_INSTALL=bundles/org.example.hello_cxx.zip
 ```
 
 `CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true` keeps repeated runs clean: the framework cache lives in `/tmp` and is deleted on destroy, never touching the runfiles tree.
+
+The framework installs all bundles first, then starts them in ascending start-level order. Here the C `hello_bundle` (level 1) is auto-started, and the C++ `hello_bundle` is installed without starting (`CELIX_AUTO_INSTALL`).
 
 ## Running
 
@@ -35,9 +39,10 @@ CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL=info
 bazel run //examples/hello_container
 ```
 
-You will see the framework boot and the runner's sentinel line:
+You will see the C hello bundle's marker (and the runner's sentinel):
 
 ```
+Hello from bundle id 1
 [ ... ] [   info] [celix_framework] rules_celix container runner started
 ```
 
@@ -64,7 +69,6 @@ bazel run //examples/hello_container:hello_container_start_sh
 
 ## Limitations
 
-- The bundles are **not yet auto-started**.
-  This milestone ships the runner, the config, and the correct layout, but the framework does not install or start the runfiles' bundles yet.
-  Bundle start levels (`CELIX_AUTO_START_0..6` / `CELIX_AUTO_INSTALL`) arrive in a later step.
 - There is **no distributable tarball yet**; the container tree is built under `bazel-bin` and usable via `bazel run` or the `start_sh` wrapper.
+- Start levels are limited to Celix's seven fixed levels `0..6` (Karaf style, ascending start / reverse stop). `install_only = [...]` bundles are installed but never started.
+- The C++ hello bundle is **installed but not started** here: C++ activators built with the current ruleset embed their own static copy of the Celix framework, which clashes with the runner's framework instance at runtime (a pre-existing limitation, tracked outside this milestone). The C hello bundle is the auto-started demonstration.

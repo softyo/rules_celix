@@ -73,13 +73,18 @@ def get_manifest_version(celix_version_str):
         return "2.0.0"
     return None
 
-def generate_manifest(ctx, private_lib_names = []):
+def generate_manifest(ctx, private_lib_names = [], activator_name = None):
     """Generate the appropriate manifest file for the given rule context.
 
     Args:
         ctx: Rule context. Must have .attr.celix (CelixRuntimeInfo provider).
         private_lib_names: list of strings — basenames of private libraries,
             used for the Private-Library header.
+        activator_name: string or None — basename of the activator shared
+            library, emitted as `Bundle-Activator` (properties) /
+            `CELIX_BUNDLE_ACTIVATOR` (JSON) so the framework loads and calls
+            it when the bundle is installed and started. None for
+            no_activator bundles.
 
     Returns:
         struct with fields:
@@ -93,10 +98,10 @@ def generate_manifest(ctx, private_lib_names = []):
     bundle_name = ctx.attr.bundle_name if getattr(ctx.attr, "bundle_name", None) else ctx.attr.symbolic_name
 
     if fmt == "json":
-        return _generate_manifest_json(ctx, celix_version, bundle_name, private_lib_names)
-    return _generate_manifest_properties(ctx, bundle_name, private_lib_names)
+        return _generate_manifest_json(ctx, celix_version, bundle_name, private_lib_names, activator_name)
+    return _generate_manifest_properties(ctx, bundle_name, private_lib_names, activator_name)
 
-def _generate_manifest_properties(ctx, bundle_name, private_lib_names):
+def _generate_manifest_properties(ctx, bundle_name, private_lib_names, activator_name):
     """Generate a META-INF/MANIFEST.MF file with OSGi-style headers."""
     archive_path = "META-INF/MANIFEST.MF"
     manifest = ctx.actions.declare_file("%s.MANIFEST.MF" % ctx.label.name)
@@ -109,12 +114,13 @@ def _generate_manifest_properties(ctx, bundle_name, private_lib_names):
             description = ctx.attr.description,
             group = ctx.attr.group,
             private_lib_names = private_lib_names,
+            activator_name = activator_name,
             headers = ctx.attr.headers,
         ),
     )
     return struct(file = manifest, archive_path = archive_path, format = "properties")
 
-def _generate_manifest_json(ctx, celix_version, bundle_name, private_lib_names):
+def _generate_manifest_json(ctx, celix_version, bundle_name, private_lib_names, activator_name):
     """Generate a META-INF/MANIFEST.json file with CELIX_BUNDLE_* headers."""
     archive_path = "META-INF/MANIFEST.json"
     manifest = ctx.actions.declare_file("%s.MANIFEST.json" % ctx.label.name)
@@ -129,6 +135,7 @@ def _generate_manifest_json(ctx, celix_version, bundle_name, private_lib_names):
             description = ctx.attr.description,
             group = ctx.attr.group,
             private_lib_names = private_lib_names,
+            activator_name = activator_name,
             headers = ctx.attr.headers,
         ),
     )
@@ -194,7 +201,7 @@ def _wrap_into_lines(remaining, width, continuation_width):
         remaining = remaining[continuation_width:]
     return lines
 
-def format_manifest_properties(symbolic_name, version, bundle_name, description, group, private_lib_names, headers):
+def format_manifest_properties(symbolic_name, version, bundle_name, description, group, private_lib_names, activator_name, headers):
     """Format manifest headers into the MANIFEST.MF text (OSGi properties).
 
     Args:
@@ -204,6 +211,8 @@ def format_manifest_properties(symbolic_name, version, bundle_name, description,
         description: Bundle-Description (emitted only when non-empty).
         group: Bundle-Group (emitted only when non-empty).
         private_lib_names: list of basenames for the Private-Library header.
+        activator_name: basename of the activator shared library, emitted as
+            Bundle-Activator (None for no_activator bundles).
         headers: dict of custom header key/value pairs.
 
     Returns:
@@ -215,6 +224,8 @@ def format_manifest_properties(symbolic_name, version, bundle_name, description,
         "Bundle-SymbolicName: %s" % symbolic_name,
         "Bundle-Version: %s" % version,
     ]
+    if activator_name:
+        body.extend(_wrap_value_lines("Bundle-Activator", activator_name))
     if description:
         body.extend(_wrap_value_lines("Bundle-Description", description))
     if group:
@@ -255,7 +266,7 @@ def _json_string(value):
             out += ch
     return out + '"'
 
-def format_manifest_json(symbolic_name, version, bundle_name, manifest_version, description, group, private_lib_names, headers):
+def format_manifest_json(symbolic_name, version, bundle_name, manifest_version, description, group, private_lib_names, activator_name, headers):
     """Format manifest headers into the MANIFEST.json text (Celix 3.x JSON).
 
     Builds an ordered list of (key, value) pairs and joins them once, avoiding
@@ -269,6 +280,8 @@ def format_manifest_json(symbolic_name, version, bundle_name, manifest_version, 
         description: Bundle description (emitted only when non-empty).
         group: Bundle group (emitted only when non-empty).
         private_lib_names: list of basenames for the private-libraries header.
+        activator_name: basename of the activator shared library (None for
+            no_activator bundles).
         headers: dict of custom header key/value pairs.
 
     Returns:
@@ -281,6 +294,8 @@ def format_manifest_json(symbolic_name, version, bundle_name, manifest_version, 
     ]
     if manifest_version:
         pairs.append(("CELIX_BUNDLE_MANIFEST_VERSION", manifest_version))
+    if activator_name:
+        pairs.append(("CELIX_BUNDLE_ACTIVATOR", activator_name))
     if description:
         pairs.append(("CELIX_BUNDLE_DESCRIPTION", description))
     if group:

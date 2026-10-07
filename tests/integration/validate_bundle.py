@@ -31,9 +31,10 @@ def validate_properties_manifest(zf, entries, expected_name, expected_version, e
                                  expected_description, expected_group, expected_private_libs,
                                  expected_headers):
     """Validate an OSGi properties-style META-INF/MANIFEST.MF."""
-    first = entries[0].filename
-    if first != "META-INF/MANIFEST.MF":
-        fail("First zip entry must be 'META-INF/MANIFEST.MF', got '%s'" % first)
+    file_entries = [e.filename for e in entries if not e.filename.endswith("/")]
+    if not file_entries or file_entries[0] != "META-INF/MANIFEST.MF":
+        fail("First file entry must be 'META-INF/MANIFEST.MF', got '%s'" %
+             (file_entries[0] if file_entries else "<none>"))
 
     manifest_text = zf.read("META-INF/MANIFEST.MF").decode("utf-8")
     headers = {}
@@ -90,9 +91,10 @@ def validate_json_manifest(zf, entries, expected_name, expected_version, expecte
                            expected_description, expected_group, expected_private_libs,
                            expected_headers):
     """Validate a Celix 3.x JSON-style META-INF/MANIFEST.json."""
-    first = entries[0].filename
-    if first != "META-INF/MANIFEST.json":
-        fail("First zip entry must be 'META-INF/MANIFEST.json', got '%s'" % first)
+    file_entries = [e.filename for e in entries if not e.filename.endswith("/")]
+    if not file_entries or file_entries[0] != "META-INF/MANIFEST.json":
+        fail("First file entry must be 'META-INF/MANIFEST.json', got '%s'" %
+             (file_entries[0] if file_entries else "<none>"))
 
     manifest_text = zf.read("META-INF/MANIFEST.json").decode("utf-8")
     try:
@@ -276,9 +278,13 @@ def main():
         else:
             if len(entries) < 2:
                 fail("Expected at least 2 entries (manifest + library), got %d" % len(entries))
-            lib_entry = entries[1].filename
-            if not lib_entry.endswith((".so", ".dylib", ".dll")):
-                fail("Second entry should be a shared library, got '%s'" % lib_entry)
+            # The manifest is the first file entry (an explicit META-INF/
+            # directory entry may precede it); the activator library follows
+            # directly after it among the file entries.
+            file_entries = [e for e in entries if not e.filename.endswith("/")]
+            lib_entry = file_entries[1].filename if len(file_entries) > 1 else None
+            if lib_entry is None or not lib_entry.endswith((".so", ".dylib", ".dll")):
+                fail("Second file entry should be a shared library, got '%s'" % lib_entry)
             # Sanity check: the library name should follow the lib*.so convention.
             if not (lib_entry.startswith("lib") and
                     any(lib_entry.endswith(ext) for ext in (".so", ".dylib", ".dll"))):

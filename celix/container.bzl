@@ -15,8 +15,10 @@
 """celix_container macro — assembles a runnable Celix container.
 
 Lays each bundle zip out at `bundles/<symbolic_name>.zip`, generates the
-framework `config.properties`, and wires everything so `bazel run` boots the
-embedded Celix framework from the generated configuration.
+framework `config.properties` (with `CELIX_AUTO_START_<level>` /
+`CELIX_AUTO_INSTALL` keys so the framework auto-starts the bundles in Karaf
+style), and wires everything so `bazel run` boots the embedded Celix framework
+from the generated configuration.
 
 The macro generates these targets:
 
@@ -29,7 +31,8 @@ The macro generates these targets:
   `bazel run //path:<name>` boots the framework; see `tools/container_runner.c`
   and the integration smoke test for the stop protocol.
 - `:<name>_config` — the generated `config.properties` (a text file under the
-  container's runtime directory `<name>_runtime/`).
+  container's runtime directory `<name>_runtime/`), with `CELIX_AUTO_START_*`
+  and `CELIX_AUTO_INSTALL` keys derived from the bundles at analysis time.
 - `:<name>_start_sh` — an `sh_binary` wrapper that `cd`s to its own directory
   and execs the container runner with the runtime directory (useful from a
   copied container tree; a future tarball step reuses it).
@@ -44,45 +47,101 @@ Example:
         symbolic_name = "org.example.hello",
     )
 
+    celix_bundle(
+        name = "config_bundle",
+        no_activator = True,
+        symbolic_name = "org.example.config",
+    )
+
     celix_container(
         name = "hello_container",
-        bundles = [":hello_bundle"],
+        bundles = {
+            1: [":hello_bundle"],
+        },
+        install_only = [":config_bundle"],
     )
 
 Run it with:
 
     bazel run //path:hello_container
 
-The container's bundles are not installed or started by the framework yet:
-bundle start levels arrive in a later step.
+The framework installs all bundles first, then starts them in ascending start
+level order (0..6).  `install_only` bundles are installed but never started.
+A bundle listed in both a start level and `install_only` is started: AUTO_START
+wins (with a warning).
 """
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("//celix/internal:container.bzl", "container_runner_file_name", "container_runtime_dir", "format_config_properties")
-load("//celix/internal:container_impl.bzl", _celix_container_runfiles_impl = "celix_container_runfiles_impl")
+load("//celix/internal:container.bzl", "container_runner_file_name", "container_runtime_dir")
+load(
+    "//celix/internal:container_impl.bzl",
+    _celix_container_config_impl = "celix_container_config_impl",
+    _celix_container_runfiles_impl = "celix_container_runfiles_impl",
+)
 
-def celix_container(name, bundles, **kwargs):
-    """Macro that assembles a runnable Celix container from a list of Celix bundles.
+def celix_container(name, bundles = {}, install_only = [], **kwargs):
+    """Macro that assembles a runnable Celix container from level-ordered Celix bundles.
 
     Args:
         name (str): Unique target name for the resulting runnable container.
-        bundles (list of Label): Ordered list of `celix_bundle` targets to assemble.
-            Each bundle is laid out at `bundles/<symbolic_name>.zip` under the
-            container's runtime directory, so symbolic names must be unique
-            within a container. Bundle start levels are not yet supported and
-            will arrive in a later step.
+        bundles (dict of int to list of Label): Start levels 0..6, each mapping
+            to the ordered list of `celix_bundle` targets to auto-start at that
+            level.  The framework installs all bundles first, then starts them
+            in ascending level order (declaration order preserved within a
+            level) and stops them in reverse.  A bundle must not be listed
+            under two different levels.  Each bundle is laid out at
+            `bundles/<symbolic_name>.zip` under the container's runtime
+            directory, so symbolic names must be unique within a container and
+            must not contain spaces.
+        install_only (list of Label): Bundles to install but never start
+            (emitted under `CELIX_AUTO_INSTALL`).  A bundle that is also listed
+            in `bundles` is auto-started instead (AUTO_START wins, with a
+            warning).
         **kwargs: Additional attributes forwarded to the generated rules.
     """
+    if type(bundles) != "dict":
+        fail(
+            "celix_container: 'bundles' must be a dict {int level 0..6: [labels]}; " +
+            "got a like-list — use install_only=[] for install-only bundles.",
+        )
+
+    # Flatten start-level bundles into declaration order, rejecting a label
+    # listed under two different levels (silent last-wins is forbidden).
+    bundle_levels = {}
+    bundles_list = []
+    for level, labels in bundles.items():
+        for label in labels:
+            if label in bundle_levels:
+                fail(
+                    "celix_container: bundle '%s' is listed under two different " +
+                    "start levels (%s and %s) in '%s'" %
+                    (label, bundle_levels[label], level, name),
+                )
+            bundle_levels[label] = str(level)
+            if label not in bundles_list:
+                bundles_list.append(label)
+
+    install_only_survivors = []
+    for label in install_only:
+        if label in bundle_levels:
+            # AUTO_START wins: excluded from CELIX_AUTO_INSTALL (the config
+            # rule prints the warning) and from the copy list.
+            continue
+        if label not in install_only_survivors:
+            install_only_survivors.append(label)
+
+    bundles_list += install_only_survivors
+
     _config_name = name + "_config"
     _start_sh_name = name + "_start_sh"
     _start_sh_src = name + "_start"
     _runner_name = container_runner_file_name(name)
 
-    write_file(
+    _celix_container_config_impl(
         name = _config_name,
-        out = "%s/config.properties" % container_runtime_dir(name),
-        content = [format_config_properties()],
-        newline = "unix",
+        bundle_levels = bundle_levels,
+        install_only = install_only,
+        container_name = name,
         **kwargs
     )
 
@@ -101,7 +160,7 @@ def celix_container(name, bundles, **kwargs):
 
     _celix_container_runfiles_impl(
         name = name,
-        bundles = bundles,
+        bundles = bundles_list,
         runner_config = ":" + _config_name,
         **kwargs
     )

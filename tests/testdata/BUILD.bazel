@@ -137,10 +137,10 @@ celix_bundle(
 
 celix_container(
     name = "test_container",
-    bundles = [
-        ":test_bundle",
-        ":test_bundle_no_activator",
-    ],
+    bundles = {
+        1: [":test_bundle"],
+        2: [":test_bundle_no_activator"],
+    },
 )
 
 # Renamed bundle: the zip itself is custom_zip_name.zip (via 'filename'), but
@@ -148,18 +148,72 @@ celix_container(
 # symbolic name is the stable container identity.
 celix_container(
     name = "test_container_renamed",
-    bundles = [":test_bundle_full"],
+    bundles = {0: [":test_bundle_full"]},
 )
 
 # A non-testonly container fixture for the runner smoke test: py_test data
 # targets cannot transitively depend on testonly targets. It is tagged manual
-# so it is not built by `bazel build //...`.
+# so it is not built by `bazel build //...`. The dummy bundles are install-only
+# (never started), keeping the smoke test hermetic and exercising the
+# CELIX_AUTO_INSTALL path end-to-end.
 celix_container(
     name = "test_container_runner_fixture",
-    bundles = [
+    install_only = [
         ":test_bundle",
         ":test_bundle_no_activator",
     ],
+    tags = ["manual"],
+    visibility = ["//tests:__subpackages__"],
+)
+
+# Multi-level + install-only fixture used by the config-content validation
+# py_test (this package's default_testonly applies).
+celix_container(
+    name = "test_container_levels",
+    bundles = {
+        1: [":test_bundle"],
+        2: [":test_bundle_no_activator"],
+    },
+    install_only = [":test_bundle_full"],
+    visibility = ["//tests:__subpackages__"],
+)
+
+# A bundle whose symbolic name contains a space, used by the container's
+# space-rejection analysis test (CELIX_AUTO_START_* values are
+# space-separated, so symbolic names must be space-free).
+celix_bundle(
+    name = "test_bundle_space_name",
+    activator = ":dummy_lib",
+    symbolic_name = "com.example.space name",
+)
+
+# Real-Celix start-order fixtures for the runner start-order integration test:
+# two bundles whose activators print fixed marker lines, assembled into a
+# two-level container (1 < 2).  Like the runner smoke fixture they are
+# testonly + manual (they link @celix//:framework), so `bazel build //...` is
+# unaffected while bazel test //... still builds them via the integration test.
+celix_c_bundle(
+    name = "start_order_infra",
+    srcs = ["start_order_infra.c"],
+    symbolic_name = "com.example.start_order_infra",
+    tags = ["manual"],
+    deps = ["@celix//:framework"],
+)
+
+celix_c_bundle(
+    name = "start_order_app",
+    srcs = ["start_order_app.c"],
+    symbolic_name = "com.example.start_order_app",
+    tags = ["manual"],
+    deps = ["@celix//:framework"],
+)
+
+celix_container(
+    name = "test_container_start_order",
+    bundles = {
+        1: [":start_order_infra"],
+        2: [":start_order_app"],
+    },
     tags = ["manual"],
     visibility = ["//tests:__subpackages__"],
 )

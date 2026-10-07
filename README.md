@@ -192,9 +192,10 @@ celix_bundle(
 A Celix bundle zip with at least:
 
 ```
-META-INF/MANIFEST.MF        (Celix 1.x / 2.x — OSGi properties)
+META-INF/                  (explicit directory entry Celix's extractor requires)
+META-INF/MANIFEST.MF       (Celix 1.x / 2.x — OSGi properties)
   or
-META-INF/MANIFEST.json      (Celix 3.x — JSON format)
+META-INF/MANIFEST.json     (Celix 3.x — JSON format)
 libhello_activator.so   (or .dylib)          (omitted with no_activator = True)
 lib<private_lib>.so     (optional private libraries, at bundle root)
 <resource short_path>   (optional resources, path preserved)
@@ -202,10 +203,10 @@ lib<private_lib>.so     (optional private libraries, at bundle root)
 
 The manifest format is determined by the Celix runtime version targeted by the `celix` attribute:
 
-* **Celix 1.x / 2.x** (default): `META-INF/MANIFEST.MF` with OSGi-style headers (`Bundle-SymbolicName`, `Bundle-Version`, etc.).
-* **Celix 3.x**: `META-INF/MANIFEST.json` with `CELIX_BUNDLE_*` headers (`CELIX_BUNDLE_SYMBOLIC_NAME`, `CELIX_BUNDLE_VERSION`, etc.).
+* **Celix 1.x / 2.x** (default): `META-INF/MANIFEST.MF` with OSGi-style headers (`Bundle-SymbolicName`, `Bundle-Version`, `Bundle-Activator`/`Private-Library`, etc.).
+* **Celix 3.x**: `META-INF/MANIFEST.json` with `CELIX_BUNDLE_*` headers (`CELIX_BUNDLE_SYMBOLIC_NAME`, `CELIX_BUNDLE_VERSION`, `CELIX_BUNDLE_ACTIVATOR`, etc.).
 
-The packaging step ensures the manifest is the first entry in the zip (Celix requires this).
+The packaging step ensures the manifest is the first file entry in the zip (preceded by its explicit parent-directory entry; Celix requires both).
 
 ## Assemble a container
 
@@ -225,16 +226,26 @@ celix_bundle(
     symbolic_name = "org.example.hello",
 )
 
+celix_bundle(
+    name = "config_bundle",
+    no_activator = True,
+    symbolic_name = "org.example.config",
+)
+
 celix_container(
     name = "hello_container",
-    bundles = [":hello_bundle"],
+    bundles = {
+        1: [":hello_bundle"],
+        2: [":config_bundle"],
+    },
+    install_only = [...],   # optional: installed, never started
 )
 ```
 
 The macro generates:
 
 - `:<name>` — the runnable container: a launcher + runfiles carrying a copy of the shared runner binary (`@rules_celix//tools:container_runner`), the generated `config.properties`, and the bundle zips.
-- `:<name>_config` — the generated `config.properties` (minimal and deterministic: `CELIX_BUNDLES_PATH`, `CELIX_FRAMEWORK_CACHE_DIR`, `CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true`, `CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL`).
+- `:<name>_config` — the generated `config.properties` (deterministic: `CELIX_BUNDLES_PATH`, `CELIX_FRAMEWORK_CACHE_DIR`, `CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true`, `CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL`, plus `CELIX_AUTO_START_<level>` / `CELIX_AUTO_INSTALL` for the bundles).
 - `:<name>_start_sh` — an `sh_binary` wrapper for running (or copying) the container tree outside Bazel.
 
 The runner binary is built once in the rules_celix repository (where `@celix` resolves and the framework is embedded) and copied per container into the package dir as `<name>_runner` so `celix_container` needs no consumer-side `@celix`.
@@ -254,8 +265,17 @@ Container outputs are package-relative and real files (deterministic byte copies
 Each bundle is laid out by its `Bundle-SymbolicName` (the stable container identity), not the bundle's target or `filename` attribute.
 Duplicate symbolic names within one container are rejected at analysis.
 
-Bundle start levels are not yet supported: the framework does not install or start the container's bundles until that step.
-See [`examples/hello_container`](examples/hello_container) for a runnable container built from the C and C++ hello bundles.
+### Autostart / start levels (max 7)
+
+Celix auto-starts bundles from the generated config in Karaf style:
+
+- `bundles` maps each bundle to a start level `0..6` (`CELIX_AUTO_START_0` … `CELIX_AUTO_START_6`).  The framework installs all bundles first, then starts them in ascending level order, preserving declaration order within a level; on shutdown they are stopped in reverse order.  Levels outside `0..6` are rejected at analysis.
+- `install_only = [...]` bundles are installed but never started (emitted under `CELIX_AUTO_INSTALL`, processed after the start set).
+- A bundle listed in both a start level and `install_only` is started: AUTO_START wins (with a warning); it is excluded from `CELIX_AUTO_INSTALL`.
+- A bundle must not be listed under two different levels (rejected at load time).
+- `CELIX_AUTO_START_*` / `CELIX_AUTO_INSTALL` values are space-separated paths, so bundle symbolic names must not contain spaces (rejected at analysis).
+
+See [`examples/hello_container`](examples/hello_container) for a runnable container that auto-starts the C hello bundle (level 1) and installs the C++ one without starting it (a pre-existing C++ activator limitation keeps C++ bundles out of auto-start for now).
 
 ## Public API (current)
 
@@ -264,7 +284,7 @@ See [`examples/hello_container`](examples/hello_container) for a runnable contai
 | `celix_bundle`        | Core rule / macro that builds a bundle zip from an existing `cc_shared_library` (explicit-activator path) |
 | `celix_c_bundle`      | Convenience macro: compile a C activator + build a bundle in one call |
 | `celix_cpp_bundle`    | Convenience macro: compile a C++ activator + build a bundle in one call |
-| `celix_container`     | Assembles a runnable Celix container from `celix_bundle` targets (`bazel run` boots the embedded framework via the shared runner copy) |
+| `celix_container`     | Assembles a runnable Celix container from `celix_bundle` targets (`bazel run` boots the embedded framework via the shared runner copy); `bundles = {int level 0..6: [labels]}` + optional `install_only` auto-start/install the bundles |
 | `celix_runtime`       | Declares a Celix runtime version contract        |
 | `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, and activator |
 | `CelixContainerInfo`  | Provider carrying the container's runner, bundle zips, and config file |

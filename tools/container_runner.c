@@ -33,10 +33,10 @@
 //     "STOP_RUNNER=1" appears in the loaded config path (re-checked on a
 //     timer); then destroys the framework and exits 0.
 //
-// It does NOT install or start any bundle: autostart is the territory of a
-// later milestone, which will emit the CELIX_AUTO_START_* keys into the
-// generated config. The framework's own autostart machinery then performs the
-// install, so the runner itself stays a thin embedding shell.
+// It does NOT install or start any bundle itself: the generated
+// config.properties carries the CELIX_AUTO_START_* and CELIX_AUTO_INSTALL
+// keys, and the framework's own autostart machinery performs the install and
+// start, so the runner stays a thin embedding shell.
 
 #include <signal.h>
 #include <stdbool.h>

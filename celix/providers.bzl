@@ -35,8 +35,10 @@ CelixContainerInfo = provider(
         "runner": "File: the per-container runner executable (a copy of the " +
                   "shared @rules_celix//tools:container_runner cc_binary, which " +
                   "embeds the Celix framework).",
-        "bundles": "list of File: the container's bundle zips under bundles/, in " +
-                   "the order of the 'bundles' attribute.",
+        "bundles": "list of File: the container's bundle zips under bundles/, " +
+                   "flattened in start order: start-level bundles (in the " +
+                   "celix_container bundles dict declaration order) followed by " +
+                   "install-only bundles.",
         "config": "File: the generated framework configuration file " +
                   "(<name>_runtime/config.properties).",
     },

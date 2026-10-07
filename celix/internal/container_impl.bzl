@@ -12,10 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Implementation of the celix_container runfiles rule."""
+"""Implementation of the celix_container config and runfiles rules."""
 
 load("//celix:providers.bzl", "CelixBundleInfo", "CelixContainerInfo")
-load("//celix/internal:container.bzl", "bundle_zip_archive_path", "container_runner_file_name", "container_runtime_dir")
+load(
+    "//celix/internal:container.bzl",
+    "bundle_zip_archive_path",
+    "container_runner_file_name",
+    "container_runtime_dir",
+    "format_config_properties",
+    "validate_autostart_level",
+)
 
 # The single shared runner binary, built once in rules_celix's repo (where
 # @celix resolves) and copied into every container by the rule below.
@@ -31,6 +38,74 @@ def _container_dir(ctx):
     passes this directory to the runner.
     """
     return container_runtime_dir(ctx.label.name)
+
+def _celix_container_config_impl_fn(ctx):
+    """Generate the container's `config.properties` from provider data.
+
+    The config content depends on `CelixBundleInfo` (each bundle's symbolic
+    name derives its archive path), so it is produced by a rule at analysis
+    time rather than by the macro's `write_file`.  The config rule validates
+    the start levels, emits `CELIX_AUTO_START_<level>` for every non-empty
+    level in ascending order and `CELIX_AUTO_INSTALL` for the surviving
+    `install_only` bundles, and writes the file at
+    `<container_name>_runtime/config.properties`.
+    """
+    level_labels = {str(target.label): True for target in ctx.attr.bundle_levels.keys()}
+    seen = {}
+    label_by_sym = {}
+
+    def _collect(target):
+        info = target[CelixBundleInfo]
+        sym_name = info.symbolic_name
+        if sym_name in seen:
+            fail(
+                "celix_container: duplicate bundle symbolic name '%s' " % sym_name +
+                "(already provided by '%s') in '%s'" % (seen[sym_name], ctx.label),
+            )
+        seen[sym_name] = str(target.label)
+        label_by_sym[str(target.label)] = info
+
+    autostart_levels = {}
+    for target, level_str in ctx.attr.bundle_levels.items():
+        # Parse the stringified level defensively: only a plain integer token
+        # is accepted, so non-int keys ("3.5", "foo", "") and out-of-range
+        # values (7, -1) all fail the range check below with one clear message.
+        is_int = level_str != ""
+        for i in range(len(level_str)):
+            if level_str[i] not in "0123456789":
+                is_int = False
+                break
+        level = int(level_str) if is_int else -1
+        validate_autostart_level(level)
+        _collect(target)
+        autostart_levels.setdefault(level, []).append(
+            bundle_zip_archive_path(label_by_sym[str(target.label)].symbolic_name),
+        )
+
+    install_only_paths = []
+    for target in ctx.attr.install_only:
+        # A bundle listed in both a start level and install_only: AUTO_START
+        # wins; it is excluded from AUTO_INSTALL and from the runfiles rule's
+        # copy list (the macro already dropped it there).
+        if str(target.label) in level_labels:
+            print(
+                "celix_container: bundle '%s' is listed in both a start level " % target.label +
+                "and install_only; AUTO_START wins and it is not added to " +
+                "CELIX_AUTO_INSTALL",
+            )
+            continue
+        _collect(target)
+        install_only_paths.append(bundle_zip_archive_path(label_by_sym[str(target.label)].symbolic_name))
+
+    config_out = ctx.actions.declare_file(
+        "%s/config.properties" % container_runtime_dir(ctx.attr.container_name),
+    )
+    ctx.actions.write(
+        output = config_out,
+        content = format_config_properties(autostart_levels, install_only_paths),
+    )
+
+    return [DefaultInfo(files = depset([config_out]))]
 
 def _declared_bundle_path(ctx, sym_name):
     """Package-relative path for a bundle copy (used for declare_file).
@@ -144,6 +219,34 @@ def _celix_container_runfiles_impl_fn(ctx):
         ),
     ]
 
+_celix_container_config_rule = rule(
+    implementation = _celix_container_config_impl_fn,
+    attrs = {
+        "bundle_levels": attr.label_keyed_string_dict(
+            mandatory = True,
+            providers = [CelixBundleInfo],
+            doc = "Internal: map of celix_bundle target to its start level, as " +
+                  "a string in \"0\"..\"6\".  The rule parses and validates the " +
+                  "level at analysis time.",
+        ),
+        "install_only": attr.label_list(
+            mandatory = True,
+            providers = [CelixBundleInfo],
+            doc = "Internal: celix_bundle targets to install without starting " +
+                  "(emitted under CELIX_AUTO_INSTALL).",
+        ),
+        "container_name": attr.string(
+            mandatory = True,
+            doc = "Internal: the celix_container target name, used to derive " +
+                  "the <name>_runtime output path (this rule's own label is " +
+                  "<name>_config).",
+        ),
+    },
+    doc = "Generates the container's config.properties from CelixBundleInfo, " +
+          "emitting CELIX_AUTO_START_<level> for every non-empty start level " +
+          "(ascending) and CELIX_AUTO_INSTALL for the install-only bundles.",
+)
+
 _celix_container_runfiles_rule = rule(
     implementation = _celix_container_runfiles_impl_fn,
     executable = True,
@@ -157,11 +260,12 @@ _celix_container_runfiles_rule = rule(
         "bundles": attr.label_list(
             mandatory = True,
             providers = [CelixBundleInfo],
-            doc = "Ordinal list of celix_bundle targets to assemble into the " +
-                  "container.  Each bundle's zip is laid out at " +
+            doc = "Flattened, ordered list of celix_bundle targets to assemble " +
+                  "into the container: start-level bundles first (in the " +
+                  "celix_container macro's bundles dict declaration order), " +
+                  "then install-only bundles.  Each bundle's zip is laid out at " +
                   "bundles/<symbolic_name>.zip under the container directory, " +
-                  "preserving bundle order.  Bundle start levels are not yet " +
-                  "supported and will arrive in a later step.",
+                  "preserving this order.",
         ),
         "_copy_tool": attr.label(
             cfg = "exec",
@@ -188,9 +292,10 @@ _celix_container_runfiles_rule = rule(
           "Produces each bundle zip as a real standalone file under " +
           "bundles/<symbolic_name>.zip (deterministic byte copies, not symlinks) " +
           "and wires a launcher + runfiles so `bazel run` starts the embedded " +
-          "Celix framework using the generated config.properties.  Bundles are " +
-          "not yet auto-started; that arrives with bundle start-level support.",
+          "Celix framework using the generated config.properties, which " +
+          "auto-starts the bundles by level (CELIX_AUTO_START_*).",
 )
 
 # Exported for the macro in celix/container.bzl
 celix_container_runfiles_impl = _celix_container_runfiles_rule
+celix_container_config_impl = _celix_container_config_rule

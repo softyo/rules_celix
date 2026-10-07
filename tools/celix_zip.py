@@ -14,15 +14,16 @@
 
 """Hermetic zip packaging tool for Celix bundles.
 
-Creates a deterministic .zip archive with the manifest as the first entry,
-following Apache Celix bundle conventions.
+Creates a deterministic .zip archive with the manifest as the first *file*
+entry (preceded by its explicit parent-directory entry, which Celix's bundle
+extractor requires), following Apache Celix bundle conventions.
 
 Why not rules_pkg?
 ------------------
 rules_pkg's pkg_zip is the standard Bazel way to create zip archives, and it
 already handles deterministic timestamps.  However, pkg_zip sorts entries
 alphabetically by destination path (see _load_manifest in build_zip.py).
-Celix requires the manifest to be the *first* entry in the zip.
+Celix requires the manifest to be the *first* file entry in the zip.
 Since "M" sorts after "l" (for "lib*.so"), pkg_zip would place the library
 before the manifest, producing an invalid Celix bundle.  rules_pkg is
 therefore deliberately NOT a dependency of this ruleset; this tool replaces
@@ -95,6 +96,50 @@ def _add_file(zf, file_path, archive_path, permissions):
     info.external_attr = permissions << 16
     with open(file_path, "rb") as fh:
         zf.writestr(info, fh.read())
+
+
+def _add_directory(zf, archive_path, permissions):
+    """Add an explicit directory entry to the zip with a deterministic header.
+
+    Celix's bundle extractor (`celix_utils_extractZipInternal`) creates only
+    the final extraction directory and then opens each file at
+    `<extract>/<entry name>` — it does *not* create intermediate directories
+    for entries like `META-INF/MANIFEST.MF`.  The upstream CMake-packaged
+    bundles therefore always include an explicit `META-INF/` directory entry,
+    and our zips must too, or `fopen` fails with ENOENT when the framework
+    installs the bundle.
+
+    Args:
+        zf: The open ZipFile (write mode).
+        archive_path: Directory path inside the zip, with a trailing '/'.
+        permissions: Unix permission bits (stored in the high 16 bits of the
+            ZIP external_attr field, with the S_IFDIR type flag set).
+    """
+    info = zipfile.ZipInfo(archive_path)
+    info.date_time = ZIP_EPOCH
+    # S_IFDIR (0o040000) marks a directory; makedirs/extract honors it.
+    info.create_system = 3
+    info.external_attr = (permissions | 0o040000) << 16
+    zf.writestr(info, "")
+
+
+def _manifest_directory(archive_path):
+    """Return the directory entry prefix for the given manifest archive path.
+
+    The manifest lives under a directory (e.g. `META-INF/`); Celix requires
+    that directory to exist as an explicit zip entry before any file inside it.
+
+    Args:
+        archive_path: the manifest's archive path (e.g. `META-INF/MANIFEST.MF`).
+
+    Returns:
+        string: the containing directory with a trailing `/`, or "" for a
+            top-level manifest.
+    """
+    idx = archive_path.rfind("/")
+    if idx == -1:
+        return ""
+    return archive_path[:idx + 1]
 
 
 def _parse_args(args):
@@ -192,10 +237,11 @@ def _check_bundle_zip(path):
 def validate_bundle_zip(path):
     """Return None if path is a valid deterministic Celix bundle zip, else an error string.
 
-    Validates that path is a zip archive whose first entry is the manifest and
-    whose entries all carry the fixed ZIP epoch.  This is the shared
-    bundle-validity contract for both the copy execution path and consumers
-    such as the container integration tests.
+    Validates that path is a zip archive whose manifest is the first *file*
+    entry (an explicit directory entry for the manifest's parent, e.g.
+    `META-INF/`, may precede it) and whose entries all carry the fixed ZIP
+    epoch.  This is the shared bundle-validity contract for both the copy
+    execution path and consumers such as the container integration tests.
 
     Args:
         path: string path to the zip file.
@@ -213,9 +259,23 @@ def validate_bundle_zip(path):
         entries = zf.infolist()
         if not entries:
             return "Empty zip archive: %s" % path
-        first = entries[0].filename
-        if first not in ("META-INF/MANIFEST.MF", "META-INF/MANIFEST.json"):
-            return "First zip entry of %s must be the manifest, got '%s'" % (path, first)
+
+        manifest_names = ("META-INF/MANIFEST.MF", "META-INF/MANIFEST.json")
+        file_entries = [e for e in entries if not e.filename.endswith("/")]
+        if not file_entries:
+            return "Zip archive has no file entries: %s" % path
+        first_file = file_entries[0].filename
+        if first_file not in manifest_names:
+            return "First file entry of %s must be the manifest, got '%s'" % (path, first_file)
+
+        # Celix's extractor creates only the extraction root directory; any
+        # manifest under a subdirectory (e.g. META-INF/) needs an explicit
+        # directory entry so files inside it can be written.
+        parent = first_file.rsplit("/", 1)[0] + "/"
+        dir_names = {e.filename for e in entries if e.filename.endswith("/")}
+        if parent not in dir_names:
+            return "Zip archive %s is missing the required directory entry '%s'" % (path, parent)
+
         for entry in entries:
             if entry.date_time != ZIP_EPOCH:
                 return "Entry '%s' of %s has non-deterministic timestamp %s" % (
@@ -262,9 +322,16 @@ def main():
 
     try:
         with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            # Celix requires the manifest to be the first entry.
+            # Celix requires the manifest to be the first entry, and the
+            # bundle extractor requires its parent directory to exist as an
+            # explicit entry.  The directory entry is emitted before the
+            # manifest so the manifest keeps its first-file position.
             # zipfile.ZipFile writes entries in order of addition, so this
             # deterministic ordering is guaranteed.
+            manifest_dir = _manifest_directory(manifest_archive_path)
+            if manifest_dir:
+                _add_directory(zf, manifest_dir, 0o755)
+
             _add_file(zf, manifest_path, manifest_archive_path, 0o644)
 
             # Then write the rest in the exact order given.

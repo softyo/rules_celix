@@ -23,8 +23,11 @@ load("@rules_celix//celix:defs.bzl", "celix_container")
 
 celix_container(
     name = "hello_container",
-    bundles = [
-        "//examples/hello_c:hello_bundle",
-        "//examples/hello_cxx:hello_bundle",
-    ],
+    bundles = {
+        1: ["//examples/hello_c:hello_bundle"],
+    },
+    # The C++ hello bundle is installed but not started (CELIX_AUTO_INSTALL):
+    # C++ activators embedded with their own static framework copy currently
+    # clash with the runner's framework instance (pre-existing limitation).
+    install_only = ["//examples/hello_cxx:hello_bundle"],
 )

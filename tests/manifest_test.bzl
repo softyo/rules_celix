@@ -36,6 +36,7 @@ def _properties_minimal_impl(ctx):
         description = "",
         group = "",
         private_lib_names = [],
+        activator_name = None,
         headers = {},
     )
     asserts.equals(
@@ -61,6 +62,7 @@ def _properties_wrap_impl(ctx):
         description = "C" * 150,
         group = "",
         private_lib_names = [],
+        activator_name = None,
         headers = {},
     )
     lines = out.split("\n")
@@ -89,6 +91,7 @@ def _properties_private_libs_impl(ctx):
         description = "",
         group = "internal.test",
         private_lib_names = ["liba.so", "libb.so"],
+        activator_name = None,
         headers = {"A-Custom": "hello", "B-Another": "world"},
     )
     asserts.equals(
@@ -116,6 +119,7 @@ def _json_golden_impl(ctx):
         description = "A JSON manifest bundle",
         group = "",
         private_lib_names = [],
+        activator_name = None,
         headers = {},
     )
     asserts.equals(
@@ -142,6 +146,7 @@ def _json_escape_impl(ctx):
         description = '"' + "\\" + "\n" + "\t" + "\r" + "x",
         group = "",
         private_lib_names = [],
+        activator_name = None,
         headers = {},
     )
     asserts.true(env, "CELIX_BUNDLE_MANIFEST_VERSION" not in out, "manifest version emitted for None")
@@ -176,6 +181,7 @@ def _manifest_failure_case_impl(ctx):
             description = "bad\achar",
             group = "",
             private_lib_names = [],
+            activator_name = None,
             headers = {},
         )
     elif ctx.attr.case == "invalid_version":

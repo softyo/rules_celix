@@ -34,9 +34,19 @@ def _celix_bundle_impl_fn(ctx):
     for lib_target in ctx.attr.private_libs:
         private_lib_files.append(get_shared_library_file(lib_target))
 
+    # The activator shared library is a private library of the bundle (Celix
+    # loads it from the extracted bundle root) and is additionally named by the
+    # Bundle-Activator header so the framework finds the entry points.
+    private_lib_names = [f.basename for f in private_lib_files]
+    activator_name = None
+    if activator_file != None:
+        private_lib_names.append(activator_file.basename)
+        activator_name = activator_file.basename
+
     manifest = generate_manifest(
         ctx,
-        private_lib_names = [f.basename for f in private_lib_files],
+        private_lib_names = private_lib_names,
+        activator_name = activator_name,
     )
 
     # Build the ordered list of (src, dest, mode) entries for the zip.

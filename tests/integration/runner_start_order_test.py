@@ -12,26 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Hermetic smoke test for the celix_container runner.
+"""Integration test: the runner boots the framework and auto-starts bundles
+in ascending start-level order.
 
-Boots the generated container: execs the container's runner binary with a
-writable copy of its runtime directory (config.properties + bundles/) as
-argv[1], waits for the fixed sentinel line logged by the runner once the Celix
-framework is up, then writes `STOP_RUNNER=1` into the copied config path and
-asserts the process exits 0 on its own.
-
-The config.properties produced by Bazel is read-only and the runfiles tree
-should not be mutated, so this test copies the whole runtime directory into a
-temp dir and mutates the copy.  This is the same configuration-path contract the
-plan specifies (the runner re-checks the loaded config path on a timer), and it
-keeps the test hermetic and deterministic: no kill timers, no races.
-
-The runner copy is rule-internal (a copy of the shared
-@rules_celix//tools:container_runner binary), so its path is derived from the
-config rootpath (config sits at <pkg>/<name>_runtime/config.properties, the
-runner at <pkg>/<name>_runner); the runner filename is passed as an argument,
-sourced from the same celix/internal/container.bzl helper the rule uses, so a
-rename is caught by the test.
+Boots `test_container_start_order` (a two-level container whose activators
+print fixed marker lines), collects stdout, asserts the level-1 marker
+(`rules_celix start-order: infra`) appears strictly before the level-2 marker
+(`rules_celix start-order: app`), then writes `STOP_RUNNER=1` into a writable
+copy of the config and asserts the runner exits 0.
 """
 
 import os
@@ -41,12 +29,14 @@ import sys
 import tempfile
 import time
 
-# The fixed sentinel line the runner logs via the framework bundle context once
-# the framework has started.  Grepping only this substring keeps the test
-# robust against verbose INFO framework logs.
+# The config.properties produced by Bazel is read-only and the runfiles tree
+# should not be mutated, so work from a writable copy, exactly like the smoke
+# test.
 SENTINEL = "rules_celix container runner started"
 
-# Key/value the test appends to the config copy to ask the runner to stop.
+INFRA_MARKER = "rules_celix start-order: infra"
+APP_MARKER = "rules_celix start-order: app"
+
 STOP_LINE = "STOP_RUNNER=1"
 
 
@@ -59,7 +49,7 @@ def fail(msg):
 def main():
     if len(sys.argv) < 3:
         fail(
-            "Usage: runner_smoke_test.py <config.properties_rootpath> "
+            "Usage: runner_start_order_test.py <config.properties_rootpath> "
             "<runner_filename>",
         )
 
@@ -69,15 +59,12 @@ def main():
     if not os.path.isfile(config_path):
         fail("Config not found: %s" % config_path)
 
-    # The runtime directory is the parent of the generated config.properties
-    # (which sits at <container_runtime_dir>/config.properties).
     runtime_dir = os.path.dirname(config_path)
     if not os.path.isdir(runtime_dir):
         fail("Runtime directory not found: %s" % runtime_dir)
 
     # The runner copy lands in the package dir next to the container's runtime
-    # directory: config rootpath is <pkg>/<name>_runtime/config.properties, so
-    # the runner is <pkg>/<runner_filename>.
+    # directory, exactly like the smoke test derives it.
     runner = os.path.join(
         os.path.dirname(os.path.dirname(config_path)),
         runner_filename,
@@ -85,13 +72,9 @@ def main():
     if not os.path.isfile(runner):
         fail("Runner not found: %s" % runner)
 
-    with open(config_path, "r") as fh:
-        config_body = fh.read()
-
-    with tempfile.TemporaryDirectory(prefix="rules_celix_smoke_") as workdir:
-        # Work from a writable copy of the whole runtime directory (config +
-        # bundles/) so the sandbox runfiles tree is untouched and the framework
-        # can install the CELIX_AUTO_INSTALL (install-only) bundles.
+    with tempfile.TemporaryDirectory(prefix="rules_celix_start_order_") as workdir:
+        # The framework needs a writable copy of the whole runtime dir (config
+        # is re-checked on a timer and bundle zips are installed from bundles/).
         for entry in os.listdir(runtime_dir):
             src = os.path.join(runtime_dir, entry)
             dst = os.path.join(workdir, entry)
@@ -104,6 +87,11 @@ def main():
                 shutil.copyfile(src, dst)
 
         copied_config = os.path.join(workdir, "config.properties")
+        config_body = open(copied_config, "r").read()
+        if "CELIX_AUTO_START_1=bundles/com.example.start_order_infra.zip" not in config_body:
+            fail("Copied config is missing the level-1 autostart entry for the infra bundle")
+        if "CELIX_AUTO_START_2=bundles/com.example.start_order_app.zip" not in config_body:
+            fail("Copied config is missing the level-2 autostart entry for the app bundle")
 
         proc = subprocess.Popen(
             [runner, workdir],
@@ -112,26 +100,38 @@ def main():
             text=True,
         )
 
+        order = []
+        rc = None
         try:
-            seen_sentinel = False
-            deadline = time.time() + 60
+            deadline = time.time() + 120
             while time.time() < deadline:
                 line = proc.stdout.readline()
                 if not line:
                     break
-                if SENTINEL in line:
-                    seen_sentinel = True
-                    print(line, end="")
+                if INFRA_MARKER in line and INFRA_MARKER not in order:
+                    order.append(INFRA_MARKER)
+                if APP_MARKER in line and APP_MARKER not in order:
+                    order.append(APP_MARKER)
+                print(line, end="")
+                if set(order) == {INFRA_MARKER, APP_MARKER}:
                     break
 
-            if not seen_sentinel:
+            if set(order) != {INFRA_MARKER, APP_MARKER}:
                 proc.kill()
                 fail(
-                    "Runner did not log the sentinel '%s' within 60s "
-                    "(exit code %s)" % (SENTINEL, proc.wait()),
+                    "Runner did not start both bundles; markers seen in order %s "
+                    "(waiting for '%s' / '%s')" % (order, INFRA_MARKER, APP_MARKER),
                 )
 
-            # Drain any buffered output so the process can exit cleanly.
+            if order.index(INFRA_MARKER) > order.index(APP_MARKER):
+                proc.kill()
+                fail(
+                    "Start order violated: level-2 marker '%s' appeared before "
+                    "level-1 marker '%s' (order seen: %s)" %
+                    (APP_MARKER, INFRA_MARKER, order),
+                )
+
+            # Ask the runner to stop cleanly, then assert a clean exit.
             with open(copied_config, "a") as fh:
                 fh.write(STOP_LINE + "\n")
 
@@ -143,8 +143,8 @@ def main():
         if rc != 0:
             fail("Runner exited with code %s (expected 0)" % rc)
 
-    print("PASS: container runner booted the framework, logged the sentinel, "
-          "and exited cleanly on STOP_RUNNER=1.")
+    print("PASS: level-1 bundle started before level-2 bundle; "
+          "runner exited cleanly on STOP_RUNNER=1.")
 
 
 if __name__ == "__main__":
