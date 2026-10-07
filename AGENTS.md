@@ -112,6 +112,13 @@ When in doubt, inspect a bundle produced by official Celix CMake and match it.
 ## Style & tooling
 
 - Starlark formatted with **buildifier**.
+- **Never hardcode shared-library extensions** (`.so`, `.dylib`, `.dll`) in
+  tests, scripts, or docs. Bazel output names are platform-dependent
+  (`cc_shared_library` produces `lib*.dylib` on macOS, `lib*.so` on Linux).
+  Use `select({...})` on `@platforms//os:osx` (etc.) with the extension
+  embedded in the value, or accept any known extension in comparisons. The
+  `validate_bundle_full_test` macOS regression (hardcoded `libdummy_lib.so`
+  for the activator) is the canonical example to avoid repeating.
 - Prefer `load("@rules_celix//celix:defs.bzl", ...)` as the only public load path.
 - Keep private implementation under `celix/internal/` and do not re-export it from `defs.bzl`.
 - Document every public attribute with a docstring suitable for Stardoc.

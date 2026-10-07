@@ -87,17 +87,19 @@ py_test(
         "@platforms//os:osx": [
             "--private-lib",
             "libdummy_private_lib.dylib",
+            "--private-lib",
+            "libdummy_lib.dylib",
         ],
         "//conditions:default": [
             "--private-lib",
             "libdummy_private_lib.so",
+            "--private-lib",
+            "libdummy_lib.so",
         ],
     }) + [
-        # The activator shared library (libdummy_lib.so) is also a private
-        # library of the bundle; Celix lists it in Private-Library after the
-        # explicitly declared private libs.
-        "--private-lib",
-        "libdummy_lib.so",
+        # The activator shared library is also a private library of the bundle;
+        # Celix lists it in Private-Library after the explicitly declared
+        # private libs. The extension is platform-dependent (handled above).
         "--resource",
         "tests/testdata/config.txt",
         "--resource",
