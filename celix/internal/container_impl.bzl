@@ -67,6 +67,17 @@ def _celix_container_config_impl_fn(ctx):
 
     autostart_levels = {}
     for target, level_str in ctx.attr.bundle_levels.items():
+        info = target[CelixBundleInfo]
+        if info.uses_cpp and info.link_mode == "static" and info.activator != None:
+            fail(
+                "celix_container: bundle '%s' has a C++ activator linked with " % target.label +
+                "framework = \"static\" and cannot be auto-started: the bundle " +
+                "embeds its own copy of the Celix framework, which crashes in " +
+                "celix::impl::createActivator when started inside the runner's " +
+                "framework instance. Set framework = \"runtime\" on the bundle " +
+                "or move it to install_only.",
+            )
+
         # Parse the stringified level defensively: only a plain integer token
         # is accepted, so non-int keys ("3.5", "foo", "") and out-of-range
         # values (7, -1) all fail the range check below with one clear message.

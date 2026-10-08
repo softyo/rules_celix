@@ -5,10 +5,29 @@
 # @celix//:framework so users get a working @celix transitively (via
 # @rules_celix) without re-declaring the private celix_deps module extension,
 # and without hardcoding the @celix repo name in their own BUILD files.
-# Container runners embed the framework at rules_celix build time and never
-# reference @celix from the consumer at all.
+#
+# Since issue #13, @celix//:framework is the *headers-only* target: activators
+# built by the celix_c_bundle / celix_cpp_bundle convenience macros (default
+# framework = "runtime") link it to leave every `celix_*` symbol unresolved, so
+# those bind against the container runner's single embedded framework (exported
+# with --export-dynamic) at dlopen time. Consumers linking the framework
+# archive themselves (self-contained .so bundles, standalone runners) use
+# :framework_static below.
 alias(
     name = "framework",
     actual = "@celix//:framework",
+    visibility = ["//visibility:public"],
+)
+
+# The embeddable framework archive (all framework + utils objects). Alias for
+# @celix//:framework_static, the counterpart of :framework: use it when the
+# framework must be compiled into the artifact (the container runner in
+# tools/BUILD.bazel, or `framework = "static"` bundles). A C++ bundle that
+# embeds this archive cannot be auto-started inside a celix_container (the
+# container analysis guard rejects link_mode = "static" && uses_cpp at start
+# levels).
+alias(
+    name = "framework_static",
+    actual = "@celix//:framework_static",
     visibility = ["//visibility:public"],
 )

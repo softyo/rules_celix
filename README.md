@@ -14,6 +14,12 @@ This ruleset lets you produce valid Celix bundles from a fully hermetic Bazel bu
 **v0.2.0 released** — adds the `celix_c_bundle` / `celix_cpp_bundle` convenience macros
 (single call that also creates the activator shared library), hermetically built real-Celix
 C and C++ examples (`examples/hello_c`, `examples/hello_cxx`), and expanded analysis + integration test coverage.
+**v0.3.0 (in progress)** — adds the runnable `celix_container` and fixes C++ activator
+framework resolution: `@celix//:framework` is now a headers-only target, the container
+runner embeds one framework copy and exports its `celix_*` symbols, and bundle activators
+(`framework = "runtime"`, the default) bind against that single instance — so C++ bundles
+auto-start without the ODR crash that occurred when each activator embedded its own
+framework copy.
 
 The ruleset is not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) —
 BCR publication is planned for v1.0. Use it via `local_path_override` or `git_override` (pinned
@@ -135,23 +141,26 @@ celix_cpp_bundle(
     symbolic_name = "com.example.hello",
     srcs = ["hello_activator.cc"],
     copts = ["-std=c++17"],
-    deps = [
-        # Your Celix framework target, e.g.:
-        # "@celix//:framework",
-    ],
     version = "1.0.0",
     bundle_name = "Hello bundle",
 )
 ```
 
-The C variant is identical but with `celix_c_bundle` and C sources. Both macros forward
-`deps`, `copts`, `linkopts`, and `includes` to the generated `cc_library`, and accept all of
-`celix_bundle`'s packaging attributes (`private_libs`, `resources`, `headers`,
-`description`, `group`, `filename`, …). At least one entry in `srcs` is required.
+The convenience macros add the framework target automatically via their `framework` parameter (default `"runtime"`), so you usually don't list a framework target in `deps` — add other libraries there only.
 
-When you need fine-grained control over the shared library (custom `hdrs`, `defines`,
-`alwayslink`, or a multi-library setup), use the explicit `cc_shared_library` +
-`celix_bundle` walkthrough above — that remains the advanced / explicit-activator path.
+The C variant is identical but with `celix_c_bundle` and C sources.
+Both macros forward `deps`, `copts`, `linkopts`, and `includes` to the generated `cc_library`, and accept all of `celix_bundle`'s packaging attributes (`private_libs`, `resources`, `headers`, `description`, `group`, `filename`, …).
+At least one entry in `srcs` is required.
+
+Both macros also accept a `framework` parameter that controls how the activator links the Celix framework:
+
+- `framework = "runtime"` (default) — the activator is linked against the framework's **headers only** (`@celix//:framework` is a headers-only target since v0.3.0).
+  Every `celix_*` symbol stays unresolved in the bundle's `.so`/`.dylib` and binds against the single framework instance a `celix_container` runner embeds and exports at dlopen time.
+  This single-instance resolution is what lets **C++ bundles auto-start** inside a container (the old default — embedding a second framework copy into the activator — ODR-crashed in `celix::impl::createActivator`).
+- `framework = "static"` — the framework archive is embedded into the activator `.so` for fully self-contained bundles (usable outside a runner).
+  A static-mode **C++** bundle cannot be auto-started by a `celix_container` (the container rejects it at analysis); use `install_only` or `framework = "runtime"` for that.
+
+When you need fine-grained control over the shared library (custom `hdrs`, `defines`, `alwayslink`, or a multi-library setup), use the explicit `cc_shared_library` + `celix_bundle` walkthrough above — that remains the advanced / explicit-activator path.
 
 ### 3. Build
 
@@ -175,6 +184,7 @@ Besides `activator` and `symbolic_name`, `celix_bundle` accepts:
 | `group`         | `Bundle-Group` header (properties) / `CELIX_BUNDLE_GROUP` (3.x). Only emitted when non-empty. |
 | `filename`      | Override the output zip base name (a trailing `.zip` is normalized away). Defaults to the target name. |
 | `no_activator`  | When `True`, ships a bundle with no activator library and makes `activator` optional (default `False`). |
+| `framework`     | Convenience-macro only: how the activator links the Celix framework — `"runtime"` (default: headers-only, resolves against the container runner's embedded framework at dlopen) or `"static"` (embeds the framework archive; not auto-startable inside a `celix_container` for C++ bundles). |
 
 For example, a bundle with no activator (e.g. a shared resource library):
 
@@ -249,8 +259,9 @@ The macro generates:
 - `:<name>_start_sh` — an `sh_binary` wrapper for running (or copying) the container tree outside Bazel.
 
 The runner binary is built once in the rules_celix repository (where `@celix` resolves and the framework is embedded) and copied per container into the package dir as `<name>_runner` so `celix_container` needs no consumer-side `@celix`.
-You still need Celix itself for the **bundles'** activators (the `:hello_lib` above links the framework headers/library).
-To get a working framework target without declaring your own `@celix`, depend on `@rules_celix//third_party/celix:framework` (an alias to `@celix//:framework`), or declare `@celix` in your own `MODULE.bazel` and pass `@celix//:framework` directly.
+The runner links the framework statically (`@celix//:framework_static`) and exports its `celix_*` symbols globally with `--export-dynamic`; bundle activators linked headers-only (`framework = "runtime"`) resolve their `celix_*` references against that single embedded instance at dlopen time — the mechanism that fixes the C++ ODR crash.
+You still need Celix itself for the **bundles'** activators (the `:hello_lib` above links the framework headers).
+To get a working framework target without declaring your own `@celix`, depend on `@rules_celix//third_party/celix:framework` (an alias to `@celix//:framework`), or declare `@celix` in your own `MODULE.bazel` and pass `@celix//:framework_static` when you need the framework compiled into your artifact, or `@celix//:framework` for the headers-only activator link (prefer the `framework = "runtime"` convenience macros, which handle this for you).
 
 Run it with:
 
@@ -274,8 +285,12 @@ Celix auto-starts bundles from the generated config in Karaf style:
 - A bundle listed in both a start level and `install_only` is started: AUTO_START wins (with a warning); it is excluded from `CELIX_AUTO_INSTALL`.
 - A bundle must not be listed under two different levels (rejected at load time).
 - `CELIX_AUTO_START_*` / `CELIX_AUTO_INSTALL` values are space-separated paths, so bundle symbolic names must not contain spaces (rejected at analysis).
+- Auto-starting a **C++ bundle** requires `framework = "runtime"` (the default for the convenience macros).
+  A C++ bundle built with `framework = "static"` embeds its own framework copy and is rejected at analysis if listed in `bundles` (it would crash in `celix::impl::createActivator` when started inside the runner's framework instance); move it to `install_only` or switch it to `framework = "runtime"`.
+  C bundles are unaffected, static mode keeps working for them.
 
-See [`examples/hello_container`](examples/hello_container) for a runnable container that auto-starts the C hello bundle (level 1) and installs the C++ one without starting it (a pre-existing C++ activator limitation keeps C++ bundles out of auto-start for now).
+See [`examples/hello_container`](examples/hello_container) for a runnable container
+that auto-starts the C hello bundle (level 1) and the C++ hello bundle (level 2).
 
 ## Public API (current)
 
@@ -286,7 +301,7 @@ See [`examples/hello_container`](examples/hello_container) for a runnable contai
 | `celix_cpp_bundle`    | Convenience macro: compile a C++ activator + build a bundle in one call |
 | `celix_container`     | Assembles a runnable Celix container from `celix_bundle` targets (`bazel run` boots the embedded framework via the shared runner copy); `bundles = {int level 0..6: [labels]}` + optional `install_only` auto-start/install the bundles |
 | `celix_runtime`       | Declares a Celix runtime version contract        |
-| `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, and activator |
+| `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, activator, `link_mode` (framework runtime/static) and `uses_cpp` flags |
 | `CelixContainerInfo`  | Provider carrying the container's runner, bundle zips, and config file |
 | `CelixRuntimeInfo`    | Provider carrying the targeted Celix runtime version |
 

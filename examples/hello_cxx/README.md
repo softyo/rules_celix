@@ -45,12 +45,14 @@ celix_cpp_bundle(
     name = "hello_bundle",
     symbolic_name = "org.example.hello_cxx",
     srcs = ["src/hello_activator.cc"],
-    deps = ["@celix//:framework"],
     copts = ["-std=c++17"],
     version = "1.0.0",
     bundle_name = "Hello CXX Bundle",
 )
 ```
+
+The bundle's activator is linked against the header-only `@celix//:framework` target (the `framework = "runtime"` default).
+Standalone, its `celix_*` symbols stay undefined in `libhello_bundle_activator.so`; inside the runnable [`examples/hello_container`](../hello_container) container, the runner's embedded framework (exported with `--export-dynamic`) satisfies them at dlopen time, the single-instance resolution that lets this C++ bundle auto-start (see the container README for the fix described in issue #13).
 
 ## Building
 

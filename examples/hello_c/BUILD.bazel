@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""C bundle example: a real Celix activator compiled and linked against the
-hermetically built `@celix//:framework`.
+"""C bundle example: a real Celix activator compiled against the hermetically
+built `@celix//:framework` (headers-only; `framework = "runtime"` default —
+inside a celix_container the activator's celix_* symbols bind against the
+runner's single embedded framework at dlopen time).
 """
 
 load("//celix:defs.bzl", "celix_c_bundle")
@@ -25,5 +27,4 @@ celix_c_bundle(
     symbolic_name = "org.example.hello",
     version = "1.0.0",
     visibility = ["//visibility:public"],
-    deps = ["@celix//:framework"],
 )

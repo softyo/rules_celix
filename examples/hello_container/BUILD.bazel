@@ -17,6 +17,10 @@ runnable Celix container — a copy of the shared rules_celix runner (embedding
 the hermetically built framework), a generated config.properties, and a
 bundles/ directory laid out under the container's runtime directory.
 `bazel run` boots the framework.
+
+Both the C and C++ bundles are auto-started: they use the default
+framework = "runtime" link mode, so their celix_* symbols bind against the
+single framework instance the runner embeds and exports (issue #13 fix).
 """
 
 load("@rules_celix//celix:defs.bzl", "celix_container")
@@ -25,9 +29,6 @@ celix_container(
     name = "hello_container",
     bundles = {
         1: ["//examples/hello_c:hello_bundle"],
+        2: ["//examples/hello_cxx:hello_bundle"],
     },
-    # The C++ hello bundle is installed but not started (CELIX_AUTO_INSTALL):
-    # C++ activators embedded with their own static framework copy currently
-    # clash with the runner's framework instance (pre-existing limitation).
-    install_only = ["//examples/hello_cxx:hello_bundle"],
 )

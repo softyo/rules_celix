@@ -270,6 +270,24 @@ py_test(
     main = "runner_start_order_test.py",
 )
 
+# Boots the singl- level real-Celix C++ container fixture and asserts the
+# framework auto-starts the C++ bundle (via celix::impl::createActivator)
+# without the ODR crash that a self-embedded framework copy causes (issue #13).
+py_test(
+    name = "runner_cxx_start_test",
+    timeout = "moderate",
+    srcs = ["runner_cxx_start_test.py"],
+    args = [
+        "$(rootpath //tests/testdata:test_container_start_cxx_config)",
+        container_runner_file_name("test_container_start_cxx"),
+    ],
+    data = [
+        "//tests/testdata:test_container_start_cxx",
+        "//tests/testdata:test_container_start_cxx_config",
+    ],
+    main = "runner_cxx_start_test.py",
+)
+
 py_test(
     name = "validate_container_renamed_test",
     srcs = ["validate_container.py"],

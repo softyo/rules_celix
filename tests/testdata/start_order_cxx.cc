@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// C++ bundle activator for the hello_cxx example.
-//
-// Written against the Apache Celix 2.4.0 C++ API: implements an RAII
-// `celix::BundleActivator` whose constructor doubles as the bundle "start"
-// hook and whose destructor is the "stop" hook. It registers a service into
-// the bundle context to exercise the service-registration path.
-
+// Real-Celix C++ activator for the runner C++ start integration test. Uses the
+// celix::impl::createActivator path (issue #13's crash site), registers a
+// service (the registerService -> ServiceRegistrationBuilder path) and logs a
+// fixed marker line on construction.
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
@@ -28,7 +26,6 @@
 #include <celix/ServiceRegistration.h>
 
 namespace {
-
 struct Greeter {
     // Anonymous-namespace types can't be named via celix::impl::extractTypeName
     // (__PRETTY_FUNCTION__ isn't usable there), so declare the service name
@@ -41,33 +38,26 @@ struct Greeter {
 
 class GreeterImpl : public Greeter {
 public:
-    void hello() const override {
-        // A real bundle would do something more interesting here.
-    }
+    void hello() const override {}
 };
-
 } // namespace
 
-class HelloActivator {
+class start_order_cxx_activator {
 public:
-    explicit HelloActivator(std::shared_ptr<celix::BundleContext> ctx)
+    explicit start_order_cxx_activator(std::shared_ptr<celix::BundleContext> ctx)
         : ctx{std::move(ctx)} {
-        // Register a Greeter service, keeping the registration alive for the
-        // lifetime of the activator. `this->ctx` (not the parameter, which the
-        // member init above moved-from) holds the live bundle context.
+        // `this->ctx` — never the parameter, which the member init moved-from.
         auto greeter = std::make_shared<GreeterImpl>();
         reg = this->ctx->registerService<Greeter>(std::move(greeter))
-                  .addProperty("greeting", std::string{"Hello from the C++ bundle"})
+                  .addProperty("greeting", std::string{"hello"})
                   .build();
-
-        this->ctx->logInfo(
-            "Hello CXX activator started in bundle id %li",
-            this->ctx->getBundleId());
+        printf("rules_celix start-order: cxx\n");
+        fflush(stdout);
     }
-
-    ~HelloActivator() {
-        ctx->logInfo("Hello CXX activator stopped in bundle id %li", ctx->getBundleId());
-        reg.reset();
+    ~start_order_cxx_activator() {
+        if (reg) {
+            reg.reset();
+        }
     }
 
 private:
@@ -75,4 +65,4 @@ private:
     std::shared_ptr<celix::ServiceRegistration> reg;
 };
 
-CELIX_GEN_CXX_BUNDLE_ACTIVATOR(HelloActivator)
+CELIX_GEN_CXX_BUNDLE_ACTIVATOR(start_order_cxx_activator)

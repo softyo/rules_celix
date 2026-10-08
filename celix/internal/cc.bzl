@@ -39,7 +39,7 @@ def get_shared_library_file(library_target):
 
     fail("Could not locate a shared library (.so/.dylib/.dll) in target %s" % library_target.label)
 
-def create_activator_shared_library(name, srcs, deps, copts, linkopts, includes, **kwargs):
+def create_activator_shared_library(name, srcs, deps, copts, linkopts, includes, framework = "runtime", **kwargs):
     """Define the cc_library + cc_shared_library pair backing a bundle macro.
 
     The cc_library (named `<name>_activator_lib`) compiles `srcs`; the cc_shared_library
@@ -52,15 +52,32 @@ def create_activator_shared_library(name, srcs, deps, copts, linkopts, includes,
         copts (list of str): Compiler options forwarded to the cc_library.
         linkopts (list of str): Linker options forwarded to the cc_library.
         includes (list of str): Include paths forwarded to the cc_library.
+        framework (str): Celix framework link mode — `"runtime"` (default) keeps
+            the activator linked against the headers-only framework so every
+            `celix_*` symbol stays unresolved and binds against the container
+            runner's exported framework instance at dlopen time (the fix for
+            issue #13's C++ ODR crash); `"static"` embeds the framework archive
+            for self-contained .so bundles outside a runner.
         **kwargs: Attributes forwarded to both generated targets (tags, visibility, testonly).
 
     Returns:
         str: the name of the generated cc_shared_library.
     """
+    effective_deps = deps
+    if framework == "runtime":
+        effective_deps = deps + ["@rules_celix//third_party/celix:framework"]
+    elif framework == "static":
+        effective_deps = deps + ["@rules_celix//third_party/celix:framework_static"]
+    else:
+        fail(
+            "create_activator_shared_library: invalid framework mode '%s' — " % framework +
+            "expected \"runtime\" or \"static\"",
+        )
+
     cc_library(
         name = name + "_activator_lib",
         srcs = srcs,
-        deps = deps,
+        deps = effective_deps,
         copts = copts,
         linkopts = linkopts,
         includes = includes,

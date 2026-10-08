@@ -25,6 +25,14 @@ CelixBundleInfo = provider(
         "activator": "File or None: the underlying cc_shared_library .so/.dylib. " +
                      "None when no_activator = True.",
         "private_libs": "list of File: private libraries bundled into the bundle zip root.",
+        "link_mode": "string: how the activator resolves the Celix framework: " +
+                     "'runtime' (headers-only link; celix_* bind against the " +
+                     "container runner's exported framework at dlopen time) or " +
+                     "'static' (the framework archive is embedded in the " +
+                     "activator .so). None when the bundle has no activator.",
+        "uses_cpp": "bool: whether the activator is a C++ bundle (one or more " +
+                    ".cc/.cpp/.cxx sources). Only used by the container's " +
+                    "auto-start guard for static-mode bundles.",
     },
 )
 

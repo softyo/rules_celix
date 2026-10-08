@@ -286,6 +286,94 @@ def _test_container_space_in_bundle_name_fails(name):
         expect_failure = True,
     )
 
+def _test_container_static_cpp_autostart_fails(name):
+    """Verify a static-mode C++ bundle cannot be auto-started (issue #13).
+
+    A C++ bundle linked with framework = "static" embeds its own compiled
+    framework copy; auto-starting it inside the container runner would give two
+    framework instances, ODR-crashing in celix::impl::createActivator. The
+    container must reject it at analysis time with a clear message.
+    """
+
+    def _impl(env, target):
+        env.expect.that_target(target).failures().contains_predicate(
+            matching.contains("cannot be auto-started"),
+        )
+
+    celix_container(
+        name = name + "_subject",
+        bundles = {0: ["//tests/testdata:static_cpp_bundle"]},
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+        expect_failure = True,
+    )
+
+def _test_container_static_cpp_ext_autostart_fails(name):
+    """Verify the static-mode C++ guard also rejects a bundle whose activator
+    uses a non-standard C++ extension (e.g. .C): previously such a source
+    slipped past _uses_cpp and bypassed the guard (issue #13 regression)."""
+
+    def _impl(env, target):
+        env.expect.that_target(target).failures().contains_predicate(
+            matching.contains("cannot be auto-started"),
+        )
+
+    celix_container(
+        name = name + "_subject",
+        bundles = {0: ["//tests/testdata:static_cpp_ext_bundle"]},
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+        expect_failure = True,
+    )
+
+def _test_container_static_cpp_install_only_ok(name):
+    """Verify a static-mode C++ bundle may be install_only (never started)."""
+
+    def _impl(env, target):
+        info = target[CelixContainerInfo]
+        env.expect.that_collection(info.bundles).has_size(1)
+        env.expect.that_str(info.bundles[0].path).contains("com.example.static_cpp.zip")
+
+    celix_container(
+        name = name + "_subject",
+        install_only = ["//tests/testdata:static_cpp_bundle"],
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+    )
+
+def _test_container_static_c_autostart_ok(name):
+    """Verify a static-mode C bundle may still be auto-started."""
+
+    def _impl(env, target):
+        env.expect.that_target(target).has_provider(CelixContainerInfo)
+
+    celix_container(
+        name = name + "_subject",
+        bundles = {0: ["//tests/testdata:static_c_bundle"]},
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+    )
+
 def _test_container_install_only_overlap_wins(name):
     """Verify a bundle in both a level and install_only is AUTO_START: present in
     the runfiles copy list and absent from install_only duplicates."""
@@ -325,3 +413,7 @@ def celix_container_analysis_test_suite(name):
     _test_container_negative_level_fails(name = name + "_negative_level_fails")
     _test_container_space_in_bundle_name_fails(name = name + "_space_in_bundle_name_fails")
     _test_container_install_only_overlap_wins(name = name + "_install_only_overlap_wins")
+    _test_container_static_cpp_autostart_fails(name = name + "_static_cpp_autostart_fails")
+    _test_container_static_cpp_ext_autostart_fails(name = name + "_static_cpp_ext_autostart_fails")
+    _test_container_static_cpp_install_only_ok(name = name + "_static_cpp_install_only_ok")
+    _test_container_static_c_autostart_ok(name = name + "_static_c_autostart_ok")

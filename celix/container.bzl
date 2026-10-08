@@ -69,6 +69,14 @@ The framework installs all bundles first, then starts them in ascending start
 level order (0..6).  `install_only` bundles are installed but never started.
 A bundle listed in both a start level and `install_only` is started: AUTO_START
 wins (with a warning).
+
+Auto-starting a C++ bundle requires `framework = "runtime"` (the default) so
+the bundle's `celix_*` symbols bind against the single framework instance the
+runner embeds and exports. A C++ bundle built with `framework = "static"`
+(which embeds its own framework copy into the activator .so) is rejected at
+analysis time if listed in `bundles` (start levels); move it to `install_only`
+or set `framework = "runtime"`. C bundles are unaffected — static mode keeps
+working because plain C symbols do not duplicate C++ program state.
 """
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
@@ -96,7 +104,8 @@ def celix_container(name, bundles = {}, install_only = [], **kwargs):
         install_only (list of Label): Bundles to install but never start
             (emitted under `CELIX_AUTO_INSTALL`).  A bundle that is also listed
             in `bundles` is auto-started instead (AUTO_START wins, with a
-            warning).
+            warning).  Install-only bundles are never started, so a C++ bundle
+            built with `framework = "static"` may safely live here.
         **kwargs: Additional attributes forwarded to the generated rules.
     """
     if type(bundles) != "dict":

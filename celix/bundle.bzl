@@ -65,6 +65,22 @@ _deny_empty_srcs = rule(
     },
 )
 
+def _uses_cpp(srcs):
+    """Return True if any source file has a C++ extension.
+
+    The container analysis guard needs to know whether a bundle's activator is
+    compiled as C++; the simplest reliable hint is the source extension set at
+    macro level (the produced .so does not carry its source language).
+    """
+    cpp_extensions = (".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".mm", ".M")
+    if not srcs:
+        return False
+    for src in srcs:
+        label = str(src)
+        if label.endswith(cpp_extensions):
+            return True
+    return False
+
 def celix_bundle(
         name,
         symbolic_name,
@@ -133,6 +149,7 @@ def celix_c_bundle(
         copts = [],
         linkopts = [],
         includes = [],
+        framework = "runtime",
         version = "0.0.0",
         bundle_name = "",
         celix = "@rules_celix//celix:default_runtime",
@@ -153,10 +170,19 @@ def celix_c_bundle(
         name (str): Bundle target name (also the prefix for the internal `_activator` targets).
         symbolic_name (str): OSGi `Bundle-SymbolicName`.
         srcs (list of Label): C sources of the activator.
-        deps (list of Label): cc_library deps (e.g. the user's Celix framework target).
+        deps (list of Label): Extra cc_library deps for the activator. The Celix
+            framework itself is added automatically by `framework` — do **not**
+            also list a framework target here (doing so is redundant for
+            "runtime" and would defeat "static"'s single-archive embedding).
         copts (list of str): Compiler options (e.g. `["-DFOO"]`). No C++ standard is forced.
         linkopts (list of str): Linker options.
         includes (list of str): Include paths for the generated cc_library.
+        framework (str): Celix framework link mode for the activator. `"runtime"`
+            (default) links the headers-only framework and leaves `celix_*`
+            unresolved so they bind against the container runner's exported
+            framework at dlopen time (required for C++ bundles auto-started by a
+            `celix_container`). `"static"` embeds the framework archive for a
+            self-contained .so usable outside a runner.
         version (str): Bundle version. Defaults to `"0.0.0"`.
         bundle_name (str): Bundle display name; defaults to symbolic_name in the rule.
         celix (Label): Celix runtime target; defaults to `//celix:default_runtime`.
@@ -187,12 +213,15 @@ def celix_c_bundle(
         copts = copts,
         linkopts = linkopts,
         includes = includes,
+        framework = framework,
         **kwargs
     )
     celix_bundle(
         name = name,
         symbolic_name = symbolic_name,
         activator = ":" + activator_name,
+        link_mode = framework,
+        uses_cpp = _uses_cpp(srcs),
         version = version,
         bundle_name = bundle_name,
         celix = celix,
@@ -213,6 +242,7 @@ def celix_cpp_bundle(
         copts = [],
         linkopts = [],
         includes = [],
+        framework = "runtime",
         version = "0.0.0",
         bundle_name = "",
         celix = "@rules_celix//celix:default_runtime",
@@ -233,10 +263,22 @@ def celix_cpp_bundle(
         name (str): Bundle target name (also the prefix for the internal `_activator` targets).
         symbolic_name (str): OSGi `Bundle-SymbolicName`.
         srcs (list of Label): C++ sources of the activator.
-        deps (list of Label): cc_library deps (e.g. the user's Celix framework target).
+        deps (list of Label): Extra cc_library deps for the activator. The Celix
+            framework itself is added automatically by `framework` — do **not**
+            also list a framework target here (doing so is redundant for
+            "runtime" and would defeat "static"'s single-archive embedding).
         copts (list of str): Compiler options (e.g. `["-std=c++17"]`). No C++ standard is forced.
         linkopts (list of str): Linker options.
         includes (list of str): Include paths for the generated cc_library.
+        framework (str): Celix framework link mode for the activator. `"runtime"`
+            (default) links the headers-only framework and leaves `celix_*`
+            unresolved so they bind against the container runner's exported
+            framework at dlopen time (required for C++ bundles auto-started by a
+            `celix_container` — the default avoids the second-framework-instance
+            ODR crash). `"static"` embeds the framework archive for a
+            self-contained .so usable outside a runner (a static C++ bundle
+            cannot be auto-started inside a `celix_container`; the container
+            fails analysis with a clear message).
         version (str): Bundle version. Defaults to `"0.0.0"`.
         bundle_name (str): Bundle display name; defaults to symbolic_name in the rule.
         celix (Label): Celix runtime target; defaults to `//celix:default_runtime`.
@@ -267,12 +309,15 @@ def celix_cpp_bundle(
         copts = copts,
         linkopts = linkopts,
         includes = includes,
+        framework = framework,
         **kwargs
     )
     celix_bundle(
         name = name,
         symbolic_name = symbolic_name,
         activator = ":" + activator_name,
+        link_mode = framework,
+        uses_cpp = _uses_cpp(srcs),
         version = version,
         bundle_name = bundle_name,
         celix = celix,

@@ -51,15 +51,22 @@ py_binary(
 #
 # This is the SINGLE shared runner binary: every celix_container target in any
 # consumer package copies it (built once in rules_celix's repo, where @celix
-# resolves) into its own <name>_runner file. The runner references the
-# framework's public API directly, so linking the static framework archive pulls
-# in exactly the objects needed — no whole-archive wrappers or platform
-# force-load flags required (verified by the integration smoke test on Linux;
-# the framework's own -ldl/-lpthread linkopts are inherited through the deps
-# edge).
+# resolves) into its own <name>_runner file.
+#
+# The runner statically embeds `@celix//:framework_static` (the full framework
+# archive — note: @celix//:framework is now the headers-only target that bundle
+# activators link against, see third_party/celix/framework.BUILD for the split)
+# and exports those symbols globally with `--export-dynamic`, so dlopened
+# bundles' unresolved `celix_*` bind against this single framework instance at
+# run time. That single-instance guarantee is what lets C++ activators
+# (framework = "runtime") auto-start without the second-framework ODR crash.
 cc_binary(
     name = "container_runner",
     srcs = ["container_runner.c"],
+    linkopts = select({
+        "@platforms//os:macos": ["-Wl,-export_dynamic"],
+        "//conditions:default": ["-Wl,--export-dynamic"],
+    }),
     visibility = ["//celix:__subpackages__"],
-    deps = ["@celix//:framework"],
+    deps = ["@celix//:framework_static"],
 )

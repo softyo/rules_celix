@@ -20,6 +20,10 @@ package(
     default_visibility = ["//tests:__subpackages__"],
 )
 
+# The .C extension fixture is auto-declared as a source-file target by Bazel
+# (unlike .cu/.mm/.M, which need exports_files and CUDA/ObjC++ toolchains),
+# so no registration is needed here.
+
 cc_library(
     name = "dummy_activator_lib",
     srcs = ["dummy_activator.c"],
@@ -197,7 +201,6 @@ celix_c_bundle(
     srcs = ["start_order_infra.c"],
     symbolic_name = "com.example.start_order_infra",
     tags = ["manual"],
-    deps = ["@celix//:framework"],
 )
 
 celix_c_bundle(
@@ -205,7 +208,6 @@ celix_c_bundle(
     srcs = ["start_order_app.c"],
     symbolic_name = "com.example.start_order_app",
     tags = ["manual"],
-    deps = ["@celix//:framework"],
 )
 
 celix_container(
@@ -216,4 +218,63 @@ celix_container(
     },
     tags = ["manual"],
     visibility = ["//tests:__subpackages__"],
+)
+
+# Real-Celix C++ start-order fixture (issue #13): a C++ activator using the
+# celix::impl::createActivator path, auto-started by a container with the
+# default framework = "runtime" link mode (headers-only), logging a fixed
+# marker line. testonly + manual like the other real-Celix fixtures.
+celix_cpp_bundle(
+    name = "start_order_cxx",
+    srcs = ["start_order_cxx.cc"],
+    copts = ["-std=c++17"],
+    symbolic_name = "com.example.start_order_cxx",
+    tags = ["manual"],
+)
+
+celix_container(
+    name = "test_container_start_cxx",
+    bundles = {
+        1: [":start_order_cxx"],
+    },
+    tags = ["manual"],
+    visibility = ["//tests:__subpackages__"],
+)
+
+# Static-link-mode fixtures for the container analysis guard tests.
+#
+# A C++ bundle with framework = "static" embeds its own compiled framework copy
+# into the activator .so; auto-starting such a bundle inside a celix_container
+# crashes in celix::impl::createActivator (issue #13), so the container rule
+# rejects static-mode C++ bundles at start levels. Static-mode C bundles are
+# fine (no C++ program state is duplicated) and static bundles may still be
+# install_only (never started) in a container.
+celix_cpp_bundle(
+    name = "static_cpp_bundle",
+    srcs = ["dummy_activator.cc"],
+    copts = ["-std=c++17"],
+    framework = "static",
+    symbolic_name = "com.example.static_cpp",
+    tags = ["manual"],
+)
+
+celix_c_bundle(
+    name = "static_c_bundle",
+    srcs = ["dummy_activator.c"],
+    framework = "static",
+    symbolic_name = "com.example.static_c",
+    tags = ["manual"],
+)
+
+# A static-mode C++ bundle whose activator source uses a non-standard C++
+# extension (.C); the container guard must reject it for auto-start like any
+# other framework = "static" C++ bundle (regression for the extension
+# allowlist broadening).
+celix_cpp_bundle(
+    name = "static_cpp_ext_bundle",
+    srcs = ["dummy_activator_ext.C"],
+    copts = ["-std=c++17"],
+    framework = "static",
+    symbolic_name = "com.example.static_cpp_ext",
+    tags = ["manual"],
 )

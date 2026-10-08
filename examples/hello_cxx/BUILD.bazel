@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""C++ bundle example: a real Celix activator compiled and linked against the
-hermetically built `@celix//:framework`.
+"""C++ bundle example: a real Celix C++ activator compiled against the
+hermetically built `@celix//:framework` (headers-only; `framework = "runtime"`
+default — inside a celix_container the activator's celix_* symbols bind against
+the runner's single embedded framework, which is what makes C++ auto-start
+safe, see issue #13).
 """
 
 load("//celix:defs.bzl", "celix_cpp_bundle")
@@ -26,5 +29,4 @@ celix_cpp_bundle(
     symbolic_name = "org.example.hello_cxx",
     version = "1.0.0",
     visibility = ["//visibility:public"],
-    deps = ["@celix//:framework"],
 )

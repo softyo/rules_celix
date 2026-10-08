@@ -15,7 +15,7 @@ The `celix_container` macro emits a copy of the shared runner binary (`@rules_ce
     ├── config.properties                    # generated framework configuration
     └── bundles/
         ├── org.example.hello.zip            # C hello bundle (auto-started, level 1)
-        └── org.example.hello_cxx.zip        # C++ hello bundle (install-only, never started)
+        └── org.example.hello_cxx.zip        # C++ hello bundle (auto-started, level 2)
 ```
 
 Under `bazel run` the process working directory is the container's package directory, and the launcher passes `hello_container_runtime/` to the runner, so the framework loads `config.properties` and the `bundles/` directory relative to it. The generated `config.properties` is deterministic and carries the bundles' start levels:
@@ -26,12 +26,21 @@ CELIX_FRAMEWORK_CACHE_DIR=.cache
 CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true
 CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL=info
 CELIX_AUTO_START_1=bundles/org.example.hello.zip
-CELIX_AUTO_INSTALL=bundles/org.example.hello_cxx.zip
+CELIX_AUTO_START_2=bundles/org.example.hello_cxx.zip
 ```
 
 `CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true` keeps repeated runs clean: the framework cache lives in `/tmp` and is deleted on destroy, never touching the runfiles tree.
 
-The framework installs all bundles first, then starts them in ascending start-level order. Here the C `hello_bundle` (level 1) is auto-started, and the C++ `hello_bundle` is installed without starting (`CELIX_AUTO_INSTALL`).
+The framework installs all bundles first, then starts them in ascending start-level order (and stops them in reverse order on shutdown). Both examples are auto-started:
+the C `hello_bundle` at level 1 and the C++ `hello_bundle` at level 2.
+
+## Why the C++ bundle can now be auto-started
+
+Roughly, framework resolution for containers is:
+
+- The runner statically embeds **one** copy of the framework (`@celix//:framework_static`) and exports its `celix_*` symbols with `--export-dynamic`.
+- Bundle activators use the default `framework = "runtime"` link mode: they compile against the **headers-only** `@celix//:framework` target, so their `celix_*` references stay unresolved in the `.so` and bind against the runner's single instance at dlopen time.
+- A single framework instance means no duplicated C++ program state — the ODR crash that used to hit `celix::impl::createActivator` when each C++ activator embedded its own static framework copy is gone.
 
 ## Running
 
@@ -39,10 +48,11 @@ The framework installs all bundles first, then starts them in ascending start-le
 bazel run //examples/hello_container
 ```
 
-You will see the C hello bundle's marker (and the runner's sentinel):
+You will see the C hello bundle's marker, the C++ hello bundle's start log, and the runner's sentinel:
 
 ```
 Hello from bundle id 1
+[ ... ] [   info] [celix_framework] Hello CXX activator started in bundle id 2
 [ ... ] [   info] [celix_framework] rules_celix container runner started
 ```
 
@@ -71,4 +81,6 @@ bazel run //examples/hello_container:hello_container_start_sh
 
 - There is **no distributable tarball yet**; the container tree is built under `bazel-bin` and usable via `bazel run` or the `start_sh` wrapper.
 - Start levels are limited to Celix's seven fixed levels `0..6` (Karaf style, ascending start / reverse stop). `install_only = [...]` bundles are installed but never started.
-- The C++ hello bundle is **installed but not started** here: C++ activators built with the current ruleset embed their own static copy of the Celix framework, which clashes with the runner's framework instance at runtime (a pre-existing limitation, tracked outside this milestone). The C hello bundle is the auto-started demonstration.
+- A **C++ bundle** built with `framework = "static"` (framework embedded into the activator `.so`) cannot be auto-started inside a container.
+  The `celix_container` rule rejects it at analysis with a clear message.
+  Keep the convenience-macro default (`framework = "runtime"`) for auto-started C++ bundles, or list a static-mode C++ bundle under `install_only`.

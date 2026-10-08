@@ -75,6 +75,10 @@ def _celix_bundle_impl_fn(ctx):
 
     bundle_name = ctx.attr.bundle_name if ctx.attr.bundle_name else ctx.attr.symbolic_name
 
+    link_mode = None
+    if not no_activator:
+        link_mode = ctx.attr.link_mode if ctx.attr.link_mode != "" else "runtime"
+
     return [
         DefaultInfo(files = depset([zip_file])),
         CelixBundleInfo(
@@ -84,6 +88,8 @@ def _celix_bundle_impl_fn(ctx):
             version = ctx.attr.version,
             activator = activator_file,
             private_libs = private_lib_files,
+            link_mode = link_mode,
+            uses_cpp = ctx.attr.uses_cpp,
         ),
     ]
 
@@ -146,6 +152,21 @@ _celix_bundle_rule = rule(
         "no_activator": attr.bool(
             default = False,
             doc = "When True, ship a bundle with no activator library, making 'activator' optional.",
+        ),
+        "link_mode": attr.string(
+            default = "",
+            doc = "Internal: how the activator resolves the Celix framework: " +
+                  "\"runtime\" (headers-only; celix_* bind against the container " +
+                  "runner's exported framework at dlopen time) or \"static\" " +
+                  "(framework archive embedded in the activator .so). Empty for " +
+                  "no_activator bundles or explicit-activator celix_bundle users " +
+                  "where the mode is the caller's cc_shared_library's choice " +
+                  "(defaults to \"runtime\").",
+        ),
+        "uses_cpp": attr.bool(
+            default = False,
+            doc = "Internal: whether the activator is a C++ bundle. Used by the " +
+                  "container auto-start guard to reject static-mode C++ bundles.",
         ),
     },
 )
