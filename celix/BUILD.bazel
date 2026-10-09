@@ -55,6 +55,7 @@ bzl_library(
     deps = [
         "//celix/internal:container_bzl",
         "//celix/internal:container_impl_bzl",
+        "//celix/internal:container_tar_bzl",
         "@bazel_skylib//rules:write_file",
     ],
 )
@@ -71,6 +72,7 @@ stardoc(
         "//celix/internal:bundle_impl_bzl",
         "//celix/internal:cc_bzl",
         "//celix/internal:container_impl_bzl",
+        "//celix/internal:container_tar_bzl",
         "//celix/internal:manifest_bzl",
         "//celix/internal:zip_bzl",
     ],

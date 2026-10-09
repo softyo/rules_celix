@@ -25,9 +25,12 @@ already handles deterministic timestamps.  However, pkg_zip sorts entries
 alphabetically by destination path (see _load_manifest in build_zip.py).
 Celix requires the manifest to be the *first* file entry in the zip.
 Since "M" sorts after "l" (for "lib*.so"), pkg_zip would place the library
-before the manifest, producing an invalid Celix bundle.  rules_pkg is
-therefore deliberately NOT a dependency of this ruleset; this tool replaces
-it for the packaging step.
+before the manifest, producing an invalid Celix bundle. rules_pkg is
+therefore deliberately NOT a dependency of the bundle packaging step; this
+tool replaces it there.  (Issues #10: container *tarballs* do use
+rules_pkg's pkg_tar — tar entry order is irrelevant to Celix, and pkg_tar
+gives the fixed-mtime/owner determinism for the distributable container
+archive.)
 
 We use a small custom tool instead so we can explicitly control entry order
 while still producing a deterministic (fixed-timestamp) zip.  The timestamp

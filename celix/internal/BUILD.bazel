@@ -44,6 +44,19 @@ bzl_library(
 )
 
 bzl_library(
+    name = "container_tar_bzl",
+    srcs = ["container_tar.bzl"],
+    deps = [
+        ":container_bzl",
+        "//celix:providers_bzl",
+        # rules_pkg ships its .bzl sources via a starlark_library target
+        # (its bzl_library compatibility layer); @rules_pkg//pkg:bzl_srcs is
+        # the public aggregate.
+        "@rules_pkg//pkg:bzl_srcs",
+    ],
+)
+
+bzl_library(
     name = "cc_bzl",
     srcs = ["cc.bzl"],
     deps = [":rules_cc_defs_bzl"],

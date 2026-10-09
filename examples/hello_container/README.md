@@ -71,16 +71,36 @@ The runner copy is a real file, so this works unchanged from a copied tree.
 ## start.sh
 
 The macro also emits `<name>_start_sh` — an `sh_binary` wrapper that `cd`s to its own directory and execs the container runner.
-It works from inside a build tree and is the shape a future distributable tarball step reuses:
+It works from inside a build tree and is reused as both the `bazel run` launcher and the tarball's `start.sh`:
 
 ```bash
 bazel run //examples/hello_container:hello_container_start_sh
 ```
 
+## Distributable tarball
+
+`celix_container` also emits a deterministic, self-contained tarball (`tarball = True` is the default):
+
+```bash
+bazel build //examples/hello_container:hello_container_tarball
+# → bazel-bin/examples/hello_container/hello_container.tgz
+```
+
+Ship that file to a machine **without Bazel or Celix**, extract, and run:
+
+```bash
+tar -xzf hello_container.tgz
+cd hello_container
+./start.sh
+```
+
+The extraction tree mirrors the `bazel run` layout exactly (`hello_container/start.sh`, `hello_container/hello_container_runner`, `hello_container/hello_container_runtime/{config.properties,bundles/*.zip}`), with deterministic mtimes/owner and no absolute build paths, so identical inputs give byte-identical archives.
+The tarball is host-platform-specific (the bundles and runner are binaries for the platform they were built on).
+
 ## Limitations
 
-- There is **no distributable tarball yet**; the container tree is built under `bazel-bin` and usable via `bazel run` or the `start_sh` wrapper.
 - Start levels are limited to Celix's seven fixed levels `0..6` (Karaf style, ascending start / reverse stop). `install_only = [...]` bundles are installed but never started.
 - A **C++ bundle** built with `framework = "static"` (framework embedded into the activator `.so`) cannot be auto-started inside a container.
   The `celix_container` rule rejects it at analysis with a clear message.
   Keep the convenience-macro default (`framework = "runtime"`) for auto-started C++ bundles, or list a static-mode C++ bundle under `install_only`.
+- Our bundled `start.sh` is the **single-container** launcher; it is distinct from Celix's deprecated multi-container runtime `start.sh`/`stop.sh`/`common.sh` orchestrator (`add_celix_runtime`).

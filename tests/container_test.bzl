@@ -396,6 +396,62 @@ def _test_container_install_only_overlap_wins(name):
         impl = _impl,
     )
 
+def _test_container_tarball_output(name):
+    """Verify tarball=True exposes a :<name>_tarball target whose default output is <name>.tgz."""
+
+    def _impl(env, target):
+        outputs = target[DefaultInfo].files.to_list()
+        env.expect.that_collection(outputs).has_size(1)
+        env.expect.that_str(outputs[0].basename).equals(name + "_subject.tgz")
+        env.expect.that_str(outputs[0].path).contains("tests/" + name + "_subject.tgz")
+
+    celix_container(
+        name = name + "_subject",
+        bundles = {
+            1: ["//tests/testdata:test_bundle"],
+        },
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name + "_tarball",
+        target = name + "_subject_tarball",
+        impl = _impl,
+    )
+
+def _test_container_tarball_disabled(name):
+    """Verify tarball=False suppresses the :<name>_tarball target entirely.
+
+    The absence is asserted at macro load time via native.existing_rule (the
+    suite runs while BUILD files are loading), because an analysis_test can
+    only analyze targets that exist.
+    """
+
+    def _impl(env, target):
+        env.expect.that_target(target).has_provider(CelixContainerInfo)
+
+    celix_container(
+        name = name + "_subject",
+        bundles = {
+            1: ["//tests/testdata:test_bundle"],
+        },
+        tarball = False,
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+    )
+
+    if native.existing_rule(name + "_subject_tarball") != None:
+        fail(
+            "celix_container(tarball = False) must not create a " +
+            "':%s_tarball' target, but %s exists" %
+            (name + "_subject", name + "_subject_tarball"),
+        )
+
 def celix_container_analysis_test_suite(name):
     """Convenience macro that creates all celix_container analysis tests."""
     unittest.suite(
@@ -417,3 +473,5 @@ def celix_container_analysis_test_suite(name):
     _test_container_static_cpp_ext_autostart_fails(name = name + "_static_cpp_ext_autostart_fails")
     _test_container_static_cpp_install_only_ok(name = name + "_static_cpp_install_only_ok")
     _test_container_static_c_autostart_ok(name = name + "_static_c_autostart_ok")
+    _test_container_tarball_output(name = name + "_tarball_output")
+    _test_container_tarball_disabled(name = name + "_tarball_disabled")

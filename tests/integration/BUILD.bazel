@@ -252,6 +252,24 @@ py_test(
     main = "validate_start_level_config.py",
 )
 
+# Proves the distributable tarball runs on a host without Bazel: extracts the
+# container's <name>.tgz with Python's stdlib tarfile and boots it via the
+# extracted ./start.sh (the same launcher the macro generates for bazel run).
+py_test(
+    name = "container_tarball_test",
+    timeout = "moderate",
+    srcs = ["container_tarball_test.py"],
+    args = [
+        "$(rootpath //tests/testdata:test_container_tarball)",
+        "test_container",
+        container_runner_file_name("test_container"),
+    ],
+    data = [
+        "//tests/testdata:test_container_tarball",
+    ],
+    main = "container_tarball_test.py",
+)
+
 # Boots the two-level real-Celix container fixture and asserts the framework
 # auto-starts the level-1 bundle before the level-2 bundle, then exits cleanly
 # on STOP_RUNNER=1.

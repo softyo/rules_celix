@@ -63,6 +63,35 @@ def container_runtime_dir(name):
     """
     return name + "_runtime"
 
+def start_sh_file_name(name):
+    """Return the tarball's launcher file name for the given target name.
+
+    The tarball reuses the container's generated start script (a content copy
+    of `:<name>_start`) as `start.sh`, the issue-specified single-container
+    launcher: it `cd`s to its own directory and execs `<name>_runner` against
+    `<name>_runtime`.  The name is deliberately plain `start.sh` (not
+    `<name>.sh`) — the nested `<name>/` tarball root already prevents
+    collisions between containers.
+
+    Args:
+        name: string, the celix_container target name.
+
+    Returns:
+        string: `"start.sh"`.
+    """
+    return "start.sh"
+
+def tarball_file_name(name):
+    """Return the distributable tarball file name for the given target name.
+
+    Args:
+        name: string, the celix_container target name.
+
+    Returns:
+        string: `"<name>.tgz"`.
+    """
+    return name + ".tgz"
+
 def validate_autostart_level(level):
     """Fail unless `level` is one of the seven fixed Celix start levels.
 

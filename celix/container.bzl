@@ -36,6 +36,12 @@ The macro generates these targets:
 - `:<name>_start_sh` — an `sh_binary` wrapper that `cd`s to its own directory
   and execs the container runner with the runtime directory (useful from a
   copied container tree; a future tarball step reuses it).
+- `:<name>_tar_stage` / `:<name>_tarball` (when `tarball = True`, the default)
+  — a `pkg_tar` and a user-facing filegroup whose default output is the
+  deterministic distributable `<name>.tgz`.  The tarball extracts to the
+  container layout (`<name>/start.sh`, `<name>/<name>_runner`,
+  `<name>/<name>_runtime/...`) and runs on a host without Bazel:
+  `tar -xzf <name>.tgz && cd <name> && ./start.sh`.
 
 Example:
 
@@ -86,8 +92,9 @@ load(
     _celix_container_config_impl = "celix_container_config_impl",
     _celix_container_runfiles_impl = "celix_container_runfiles_impl",
 )
+load("//celix/internal:container_tar.bzl", _celix_container_tarball = "celix_container_tarball")
 
-def celix_container(name, bundles = {}, install_only = [], **kwargs):
+def celix_container(name, bundles = {}, install_only = [], tarball = True, **kwargs):
     """Macro that assembles a runnable Celix container from level-ordered Celix bundles.
 
     Args:
@@ -106,6 +113,10 @@ def celix_container(name, bundles = {}, install_only = [], **kwargs):
             in `bundles` is auto-started instead (AUTO_START wins, with a
             warning).  Install-only bundles are never started, so a C++ bundle
             built with `framework = "static"` may safely live here.
+        tarball (bool): Whether to additionally generate the distributable
+            `:<name>_tarball` / `<name>.tgz` target (default True).  Set
+            `tarball = False` to skip the tarball step when only `bazel run`
+            is needed (no rules_pkg dependency is pulled in).
         **kwargs: Additional attributes forwarded to the generated rules.
     """
     if type(bundles) != "dict":
@@ -180,3 +191,12 @@ def celix_container(name, bundles = {}, install_only = [], **kwargs):
         data = [":%s" % name],
         **kwargs
     )
+
+    if tarball:
+        _celix_container_tarball(
+            name = name,
+            container_name = name,
+            runfiles_label = ":" + name,
+            start_sh_label = ":" + _start_sh_src,
+            **kwargs
+        )

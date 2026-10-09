@@ -19,7 +19,8 @@ framework resolution: `@celix//:framework` is now a headers-only target, the con
 runner embeds one framework copy and exports its `celix_*` symbols, and bundle activators
 (`framework = "runtime"`, the default) bind against that single instance — so C++ bundles
 auto-start without the ODR crash that occurred when each activator embedded its own
-framework copy.
+framework copy. Containers also emit a deterministic distributable `.tgz`
+(`celix_container(tarball = True)`) that runs without Bazel.
 
 The ruleset is not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) —
 BCR publication is planned for v1.0. Use it via `local_path_override` or `git_override` (pinned
@@ -258,6 +259,8 @@ The macro generates:
 - `:<name>` — the runnable container: a launcher + runfiles carrying a copy of the shared runner binary (`@rules_celix//tools:container_runner`), the generated `config.properties`, and the bundle zips.
 - `:<name>_config` — the generated `config.properties` (deterministic: `CELIX_BUNDLES_PATH`, `CELIX_FRAMEWORK_CACHE_DIR`, `CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true`, `CELIX_LOGGING_DEFAULT_ACTIVE_LOG_LEVEL`, plus `CELIX_AUTO_START_<level>` / `CELIX_AUTO_INSTALL` for the bundles).
 - `:<name>_start_sh` — an `sh_binary` wrapper for running (or copying) the container tree outside Bazel.
+- `:<name>_tar_stage` / `:<name>_tarball` (when `tarball = True`, the default).
+  The `pkg_tar` and a user-facing filegroup whose single default output is the distributable `<name>.tgz`.
 
 The runner binary is built once in the rules_celix repository (where `@celix` resolves and the framework is embedded) and copied per container into the package dir as `<name>_runner` so `celix_container` needs no consumer-side `@celix`.
 The runner links the framework statically (`@celix//:framework_static`) and exports its `celix_*` symbols globally with `--export-dynamic`; bundle activators linked headers-only (`framework = "runtime"`) resolve their `celix_*` references against that single embedded instance at dlopen time — the mechanism that fixes the C++ ODR crash.
@@ -276,6 +279,41 @@ The cache lives in `/tmp` (`CELIX_FRAMEWORK_CACHE_USE_TMP_DIR=true`), so repeate
 Container outputs are package-relative and real files (deterministic byte copies of the bundle zips, plus the copied runner binary, not symlinks), nested under the container's runtime directory `<name>_runtime/` so the tree can be copied verbatim next to a Celix executable.
 Each bundle is laid out by its `Bundle-SymbolicName` (the stable container identity), not the bundle's target or `filename` attribute.
 Duplicate symbolic names within one container are rejected at analysis.
+
+### Distributable tarball
+
+`celix_container` builds a deterministic, self-contained `<name>.tgz` by default (`tarball = True`).  Build it explicitly with:
+
+```bash
+bazel build //path:name_tarball
+# → bazel-bin/path/name.tgz
+```
+
+The tarball extracts to the container's deployable layout and runs on a host **without Bazel or Celix installed** (the runner statically embeds the framework):
+
+```
+name.tgz
+└── name/
+    ├── start.sh                # = the generated <name>_start launcher
+    ├── name_runner             # the runner copy (embeds the Celix framework)
+    └── name_runtime/
+        ├── config.properties
+        └── bundles/<symbolic_name>.zip
+```
+
+```bash
+tar -xzf name.tgz
+cd name
+./start.sh                      # boots the framework; Ctrl-C or STOP_RUNNER=1
+```
+
+The archive is deterministic (fixed 2000-01-01 mtimes, fixed `0.0` owner, sorted entries, no absolute bazel-out paths), so identical inputs produce identical bytes.
+`start.sh` here is this container's *single-container* launcher.
+It is the same script `bazel run` uses, and it is distinct from the multi-container `start.sh`/`stop.sh`/`common.sh` trio of Celix's deprecated `add_celix_runtime` orchestrator.
+
+Set `tarball = False` on `celix_container(...)` to skip the tarball step entirely (no `rules_pkg` dependency is pulled in) when only `bazel run` is needed.
+
+> **Per-platform tarballs**: the bundles and the runner are host-platform binaries, so a tarball is platform-specific (Linux ↔ macOS), exactly like the `bazel run` artifact.
 
 ### Autostart / start levels (max 7)
 
@@ -300,7 +338,7 @@ that auto-starts the C hello bundle (level 1) and the C++ hello bundle (level 2)
 | `celix_bundle`        | Core rule / macro that builds a bundle zip from an existing `cc_shared_library` (explicit-activator path) |
 | `celix_c_bundle`      | Convenience macro: compile a C activator + build a bundle in one call |
 | `celix_cpp_bundle`    | Convenience macro: compile a C++ activator + build a bundle in one call |
-| `celix_container`     | Assembles a runnable Celix container from `celix_bundle` targets (`bazel run` boots the embedded framework via the shared runner copy); `bundles = {int level 0..6: [labels]}` + optional `install_only` auto-start/install the bundles |
+| `celix_container`     | Assembles a runnable Celix container from `celix_bundle` targets (`bazel run` boots the embedded framework via the shared runner copy); `bundles = {int level 0..6: [labels]}` + optional `install_only` auto-start/install the bundles; `tarball = True` (default) also emits the distributable `<name>.tgz` |
 | `celix_runtime`       | Declares a Celix runtime version contract        |
 | `CelixBundleInfo`     | Provider carrying zip path, symbolic name, version, activator, `link_mode` (framework runtime/static) and `uses_cpp` flags |
 | `CelixContainerInfo`  | Provider carrying the container's runner, bundle zips, and config file |
@@ -384,7 +422,7 @@ The generated HTML reference will be available at:
 |---------|--------------|----------------------------------------------------------|
 | 0.1     | Done         | Packaging rule only (existing `cc_shared_library` → zip) |
 | 0.2     | Done         | Convenience macros (`celix_c_bundle`/`celix_cpp_bundle`) + real-Celix C & C++ examples |
-| 0.3     | In progress   | `celix_container` runnable: hermetic runner binary, generated config, runfiles layout |
+| 0.3     | In progress   | `celix_container` runnable: hermetic runner binary, generated config, runfiles layout, start-level autostart, distributable tarball |
 | 0.4     | Planned      | Version compatibility tests                              |
 | 1.0     | Planned      | Stable API, BCR publication                              |
 

@@ -21,6 +21,12 @@ module(
 bazel_dep(name = "rules_cc", version = "0.0.9")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 
+# Container tarball step: pkg_tar assembles the deterministic <name>.tgz from
+# the staged runtime tree (issue #10).  Bundle zips keep the custom celix_zip
+# tool: pkg_zip's alphabetical sorting would break Celix's manifest-first
+# requirement, which does not apply to tar assembly.
+bazel_dep(name = "rules_pkg", version = "0.7.0")
+
 # Test-only: analysis_test infrastructure and platform selectors
 bazel_dep(name = "rules_testing", version = "0.6.0", dev_dependency = True)
 
