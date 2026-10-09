@@ -103,7 +103,12 @@ def celix_bundle(
         symbolic_name (str): OSGi `Bundle-SymbolicName` header value.
         activator (Label, optional): Label of a `cc_shared_library` target containing the
             bundle activator. Required unless `no_activator = True`; ignored when
-            `no_activator = True`.
+            `no_activator = True`. When the activator is linked against the headers-only
+            framework (the `framework = "runtime"` pattern), its shared library leaves every
+            `celix_*` symbol unresolved; on **macOS** the `cc_shared_library` must then be
+            linked with `-Wl,-undefined,dynamic_lookup` for ld64 to accept the undefined
+            symbols (the `celix_c_bundle` / `celix_cpp_bundle` convenience macros do this
+            automatically for their generated activator).
         version (str): Bundle version. Defaults to `"0.0.0"`.
         bundle_name (str): Bundle display name. Defaults to symbolic_name if unset.
         celix (Label): Celix runtime target defining manifest format and conventions.

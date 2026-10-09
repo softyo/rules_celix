@@ -54,6 +54,8 @@ celix_cpp_bundle(
 The bundle's activator is linked against the header-only `@celix//:framework` target (the `framework = "runtime"` default).
 Standalone, its `celix_*` symbols stay undefined in `libhello_bundle_activator.so`; inside the runnable [`examples/hello_container`](../hello_container) container, the runner's embedded framework (exported with `--export-dynamic`) satisfies them at dlopen time, the single-instance resolution that lets this C++ bundle auto-start (see the container README for the fix described in issue #13).
 
+On macOS, the `.dylib` is linked with `-Wl,-undefined,dynamic_lookup` (added automatically for runtime-mode activator bundles), the canonical plugin flag: `ld64` accepts the unresolved `celix_*` symbols at link time and `dyld` resolves them against the runner's exported framework at dlopen time.
+
 ## Building
 
 ```

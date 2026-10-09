@@ -157,6 +157,7 @@ Both macros also accept a `framework` parameter that controls how the activator 
 - `framework = "runtime"` (default) — the activator is linked against the framework's **headers only** (`@celix//:framework` is a headers-only target since v0.3.0).
   Every `celix_*` symbol stays unresolved in the bundle's `.so`/`.dylib` and binds against the single framework instance a `celix_container` runner embeds and exports at dlopen time.
   This single-instance resolution is what lets **C++ bundles auto-start** inside a container (the old default — embedding a second framework copy into the activator — ODR-crashed in `celix::impl::createActivator`).
+  On macOS, the activator link passes `-Wl,-undefined,dynamic_lookup` (the standard plugin flag) so `ld64` accepts the unresolved symbols and leaves them to be resolved by `dyld` against the runner at `dlopen` time — Linux's GNU ld allows them by default.
 - `framework = "static"` — the framework archive is embedded into the activator `.so` for fully self-contained bundles (usable outside a runner).
   A static-mode **C++** bundle cannot be auto-started by a `celix_container` (the container rejects it at analysis); use `install_only` or `framework = "runtime"` for that.
 
