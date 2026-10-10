@@ -17,10 +17,10 @@ module(
 )
 ```
 
-Update `README.md` if the "Status" section, roadmap table, or "Quick start" blockquote reference the version.
+Update `docs/developing/roadmap.md` if the status or milestone table reference the version, and `docs/using/quickstart.md` if the `git_override`/`local_path_override` snippets need a new tag.
 Keep the `git_override`/`local_path_override` snippets in sync with the release tag.
 
-Run the checks from the [Contributing guide](../CONTRIBUTING.md) before tagging:
+Run the checks from the [Contributing guide](../../CONTRIBUTING.md) before tagging:
 
 ```bash
 ./bazelw run @buildifier_prebuilt//:buildifier -- -r .
@@ -29,7 +29,8 @@ Run the checks from the [Contributing guide](../CONTRIBUTING.md) before tagging:
 
 ## 2. Create the release tag
 
-All commits must be signed off (`git commit -s`); CI enforces this via the DCO workflow.
+All commits must be signed off (`git commit -s`).
+CI enforces this via the DCO workflow.
 Push the version bump to `main`, then tag:
 
 ```bash
@@ -55,15 +56,31 @@ The result must extract under `rules_celix-v<version>/`:
 tar -tzf rules_celix-v<version>.tar.gz | head
 ```
 
+> **Why upload a custom archive if GitHub already generates one for each tag?**
+>
+> GitHub's automatically generated `.zip`/`.tar.gz` are content-identical to `git archive` and are perfectly valid.
+> The custom archive is uploaded anyway because it:
+>
+> - **Gives a stable, predictable strip prefix.** `--prefix=rules_celix-v<version>/` makes the top-level directory `rules_celix-v<version>/`.
+> GitHub's generated tarballs instead root under `rules_celix-<7-char-commit-sha>/`, so an `http_archive`/`git_override` consumer's `strip_prefix` would depend on the commit hash.
+> A fixed prefix matches what `.bcr/source.template.json` expects (`rules_celix-<VERSION>`).
+> - **Matches the documented download URL / asset name.** `rules_celix-v<version>.tar.gz` is the filename the [quick start](../using/quickstart.md) and BCR template reference (`.../release/download/v<version>/rules_celix-v<version>.tar.gz`), letting the documented URL resolve to a real asset.
+> - **Let us control the contents.** `git archive` snapshots only tracked files as of the tag and honors `.gitattributes` `export-ignore` (e.g. excluding `.github/`, CI internals, or dev-only files), and never includes `.git`, commit SHAs, or untracked/local files.
+> - **Provides an authoritative, verifiable checksum.** Built deterministically from a fixed tag by a canonical command, we publish one SHA-256 consumers can verify against the asset (see section 4).
+>
+> Net effect: the custom archive is for a stable, documented, checksummed artifact - not for content the tag's own files don't already contain.
+
 ## 4. Record the checksum
 
-Compute the SHA-256 of the archive; consumers of an `http_archive`-style download will need it, and the `.bcr/source.template.json` expects a matching integrity value if BCR publication is ever resumed:
+Compute the SHA-256 of the archive.
+Consumers of an `http_archive`-style download will need it.
+The `.bcr/source.template.json` expects a matching integrity value if BCR publication is ever resumed:
 
 ```bash
 sha256sum rules_celix-v<version>.tar.gz
 ```
 
-Paste the checksum into the release notes (or a `RELEASES.md` entry) so users can validate what they download.
+Paste the checksum into the release notes (or a `RELEASES.md` entry) so users can check what they download.
 
 ## 5. Publish the GitHub release
 
@@ -75,7 +92,8 @@ The release notes should link to this document when the release differs from the
 
 ## Versioning and BCR
 
-- Tags follow `vX.Y.Z` (leading `v`); the Bazel module version is `X.Y.Z`.
+- Tags follow `vX.Y.Z` (leading `v`).
+  The Bazel module version is `X.Y.Z`.
 - BCR publication remains deferred to v1.0. When it is resumed, `.bcr/` templates expect:
   - `url`: `https://github.com/softyo/rules_celix/releases/download/<TAG>/rules_celix-<TAG>.tar.gz`
   - `strip_prefix`: `rules_celix-<VERSION>`

@@ -6,7 +6,9 @@ We welcome contributions in the form of bug reports, feature requests, documenta
 
 ## Getting Started
 
-1. **Read the [README.md](README.md)** to understand the project's goals, current status, and how to use the ruleset.
+1. **Read the [README.md](README.md) and the [docs](docs/README.md)** to understand the project's goals, current status, and how to use the ruleset.
+   User-facing documentation lives in [`docs/using/`](docs/using/).
+   Contributor documentation lives in [`docs/developing/`](docs/developing/).
 2. **Set up your environment**:
    - No pre-installed Bazel is required. Use the provided `./bazelw` (Linux/macOS) or `bazelw.bat` (Windows) wrapper scripts, which automatically download and use the correct version of Bazelisk/Bazel.
    - Ensure you have a standard C/C++ toolchain available (e.g., `gcc` or `clang`), as this ruleset relies on `rules_cc`.
@@ -18,7 +20,9 @@ When you click **New Issue** on our GitHub repository, you will be presented wit
 - **🐛 Bug Report**: For unexpected behavior, errors, or build failures.
 - **✨ Enhancement Request**: For new features, improvements, or API suggestions.
 
-Please fill out the form as completely as possible. For bug reports, providing your Bazel version, OS, and minimal reproduction steps is incredibly helpful. Before submitting, please check existing issues to avoid duplicates.
+Please fill out the form as completely as possible.
+For bug reports, providing your Bazel version, OS, and minimal reproduction steps is very helpful.
+Before submitting, please check existing issues to avoid duplicates.
 
 ## Development Workflow
 
@@ -41,10 +45,13 @@ Run the full test suite before submitting changes:
 ### Pre-Submission Checklist
 
 Before opening a Pull Request, please ensure:
+
 - [ ] All Starlark files are formatted with `buildifier`.
 - [ ] `./bazelw test //...` passes.
-- [ ] All commits are signed off (`git commit -s`). CI will verify this automatically.
-- [ ] If you changed public APIs, the `README.md` documentation is updated.
+- [ ] All commits are signed off (`git commit -s`).
+  CI will check this for you.
+- [ ] If you changed public APIs or rule behavior, the documentation is updated: `docs/using/` (consumers) and `docs/developing/` (contributors) as appropriate.
+  Update the README only if public behavior/API changed.
 - [ ] If you changed rule behavior, relevant examples (`examples/`) and tests (`tests/`) are updated.
 - [ ] Your commit messages are clear and reference any related issues.
 

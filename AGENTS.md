@@ -18,20 +18,23 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 
 ## Current status
 
-- v0.1.0 released (tagged `v0.1.0`)
-- v0.2.0 released (tagged `v0.2.0`): `celix_c_bundle` / `celix_cpp_bundle` convenience macros, hermitically-built real-Celix C and C++ examples (`examples/hello_c`, `examples/hello_cxx`), and the `celix/internal/cc.bzl` shared-library refactor
+Snapshot; the canonical, always-current status and milestone details live in [`docs/developing/roadmap.md`](docs/developing/roadmap.md):
+
+- v0.1.0 and v0.2.0 released; v0.3.0 in progress (`celix_container` runnable, C++ framework-resolution fix, distributable tarball)
 - Not published to the Bazel Central Registry (BCR) — deferred to v1.0
 - API may change without notice until 1.0
 
 ## Milestones
 
-| Milestone | Status      | Description |
-|-----------|-------------|-------------|
-| **0.1**   | Done        | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
-| **0.2**   | Done        | `celix_c_bundle` / `celix_cpp_bundle` convenience macros (`srcs`-only, no explicit `activator` — that stayed `celix_bundle`'s job), real-Celix C and C++ examples, and the shared-library refactor in `celix/internal/cc.bzl`.
-| **0.3**   | In progress  | `celix_container` runnable (issue #8 landed): hermetic runner binary (`tools/container_runner.c` embedding `@celix//:framework_static`), generated `config.properties`, and per-container runtime directory `<name>_runtime/` wired as runfiles — `bazel run` boots the framework. Start-level autostart (#9 landed): `bundles = {int 0..6: [labels]}` + `install_only = [...]` emit `CELIX_AUTO_START_0..6` / `CELIX_AUTO_INSTALL` into the generated config (a new `celix_container_config` rule writes it from `CelixBundleInfo`), and the framework installs then starts bundles in ascending level order (reverse stop). The runner is a *single shared* `cc_binary` built once in rules_celix (where `@celix` resolves) and copied per container via `ctx.actions.copy`; `@rules_celix//third_party/celix:framework` aliases `@celix//:framework` for activator consumers. C++ activator framework resolution (#13 landed): `@celix//:framework` became the **headers-only** target for bundle activators, `@celix//:framework_static` is the embeddable archive the runner links and exports with `--export-dynamic`, and `celix_c_bundle`/`celix_cpp_bundle` gained a `framework` param (`"runtime"` default / `"static"`) with a container analysis guard that rejects static-mode C++ bundles at start levels (install-only is fine). Distributable tarball (#10 landed): `celix_container` gains a `tarball = True` (default) flag emitting `:<name>_tarball` / `<name>.tgz` via `rules_pkg`'s `pkg_tar`, packaging the same runfiles files (runner, config, bundle zips) plus the generated `start.sh` under a `<name>/` root; deterministic (portable mtime, fixed owner, sorted entries) and runs without Bazel (`tar -xzf && cd <name> && ./start.sh`). Note: the tarball step uses `pkg_tar` (the manifest-first constraint that keeps bundle zips on `tools/celix_zip.py` does not apply to tar), and `celix/internal/container_tar.bzl` packages the runfiles rule's individual files rather than a TreeArtifact (Bazel forbids nesting declared files under a declared tree at the same path). |
-| **0.4**   | Planned     | Version compatibility tests |
-| **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates. |
+Single-source table lives in [`docs/developing/roadmap.md`](docs/developing/roadmap.md) (keep it in sync there):
+
+| Milestone | Status       | Summary |
+|-----------|--------------|---------|
+| **0.1**   | Done         | Core `celix_bundle` rule, deterministic manifest-first zip, `CelixBundleInfo`, private_libs + resources |
+| **0.2**   | Done         | `celix_c_bundle` / `celix_cpp_bundle` convenience macros, real-Celix examples, `celix/internal/cc.bzl` refactor |
+| **0.3**   | In progress  | `celix_container` runnable (issues #8/#9/#13/#10): hermetic runner, config.properties, start-level autostart, C++ framework resolution, distributable tarball |
+| **0.4**   | Planned      | Version compatibility tests |
+| **1.0**   | Planned      | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates |
 
 ## Repository map
 
@@ -59,11 +62,13 @@ rules_celix/
 ├── examples/                 # runnable, tested samples (hello_c, hello_cxx, …)
 ├── tests/                    # analysistest + integration tests
 ├── tools/                    # hermetic helper binaries (celix_zip.py packaging tool)
-├── docs/                     # release + contribution docs (releasing.md)
+├── docs/                     # consumer docs (using/) + contributor docs (developing/) — index in docs/README.md
 └── .bcr/                     # BCR submission templates (metadata, source, presubmit)
 ```
 
 ### Where to change what
+
+Also canonical in [docs/developing/implementation-notes.md](docs/developing/implementation-notes.md) (expanded repository map + design principles).
 
 | Task                              | Primary location              |
 |-----------------------------------|-------------------------------|
@@ -104,36 +109,40 @@ When in doubt, inspect a bundle produced by official Celix CMake and match it.
 
 ## Testing expectations
 
+See [`docs/developing/testing.md`](docs/developing/testing.md) for the detailed test layout (analysis, golden/manifest, integration), test types, and the shared-library-extension style rule. In short:
+
 - Analysis tests for provider content, output files, and attribute validation.
 - Golden / string tests for generated manifests.
-- At least one end-to-end example that produces a loadable zip (full Celix runtime test is optional until a container rule exists).
+- At least one end-to-end example that produces a loadable zip (full Celix runtime test is optional; the container rule covers it).
 - `bazel test //...` must pass on the supported platforms.
 
 ## Style & tooling
 
 - Starlark formatted with **buildifier**.
-- **Never hardcode shared-library extensions** (`.so`, `.dylib`, `.dll`) in
-  tests, scripts, or docs. Bazel output names are platform-dependent
-  (`cc_shared_library` produces `lib*.dylib` on macOS, `lib*.so` on Linux).
-  Use `select({...})` on `@platforms//os:osx` (etc.) with the extension
-  embedded in the value, or accept any known extension in comparisons. The
-  `validate_bundle_full_test` macOS regression (hardcoded `libdummy_lib.so`
-  for the activator) is the canonical example to avoid repeating.
+- **Never hardcode shared-library extensions** (`.so`, `.dylib`, `.dll`) in tests, scripts, or docs.
+  Bazel output names are platform-dependent (`cc_shared_library` produces `lib*.dylib` on macOS, `lib*.so` on Linux).
+  Use `select({...})` on `@platforms//os:osx` (etc.) with the extension embedded in the value, or accept any known extension in comparisons.
+  The `validate_bundle_full_test` macOS regression (hardcoded `libdummy_lib.so` for the activator) is the canonical example to avoid repeating.
 - Prefer `load("@rules_celix//celix:defs.bzl", ...)` as the only public load path.
 - Keep private implementation under `celix/internal/` and do not re-export it from `defs.bzl`.
 - Document every public attribute with a docstring suitable for Stardoc.
+
+## Markdown style
+
+- One sentence per line in paragraphs.
+- Do not use em dashes or en dashes in your response. Use commas or parentheses instead.
 
 ## Release / BCR notes
 
 - Version tags: `v0.1.0`, `v0.2.0`, …
 - Use the templates under `.bcr/` and the [publish-to-bcr](https://github.com/bazel-contrib/publish-to-bcr) workflow when ready.
-- Until BCR publication, consumers use `local_path_override` or `git_override` (documented in README.md).
+- Until BCR publication, consumers use `local_path_override` or `git_override` (documented in [docs/using/quickstart.md](docs/using/quickstart.md), canonical at [docs/using/](docs/using/)).
 
 ## When implementing changes
 
 1. Prefer extending the existing `celix_bundle` path over adding parallel rules.
 2. Update examples and tests in the same change.
-3. Keep the README “Quick start” and API table in sync with reality.
+3. Keep `docs/using/` (quickstart, bundles, containers, api) in sync with reality.
 4. If the public attribute set changes, note it clearly — the project is still pre-1.0.
 
 ## Contact / ownership
