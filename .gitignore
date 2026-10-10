@@ -18,6 +18,10 @@
 
 # Agents
 .kilo/plans
+.kilo/issues
+
+# Release tarballs (built by the release process, not committed)
+rules_celix-*.tar.gz
 
 # macOS artifacts
 .DS_Store
