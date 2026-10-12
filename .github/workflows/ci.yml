@@ -112,10 +112,12 @@ jobs:
 
   # ---------------------------------------------------------------------
   # Release gate — runs on tag pushes (v*) so a release tag cannot
-  # be cut while the tree is broken.
+  # be cut while the tree is broken.  Waits for the full matrix
+  # (buildifier + Linux + macOS) and verifies tag/version consistency.
   # ---------------------------------------------------------------------
   release:
     name: "release gate (tag ${{ github.ref_name }})"
+    needs: [buildifier, build_test]
     runs-on: ubuntu-latest
 
     steps:
@@ -133,3 +135,13 @@ jobs:
 
       - name: Bazel test
         run: bazel test //...
+
+      - name: Verify tag matches MODULE.bazel version
+        run: |
+          version="$(grep '^    version = ' MODULE.bazel | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+          expected="v${version}"
+          if [ "$expected" != "${{ github.ref_name }}" ]; then
+            echo "Release gate failed: tag ${{ github.ref_name }} does not match MODULE.bazel version (expected $expected)."
+            exit 1
+          fi
+          echo "Release gate passed: tag ${{ github.ref_name }} matches MODULE.bazel version ${version}, matrix green."

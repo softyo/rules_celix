@@ -38,8 +38,9 @@ git tag -a v<version> -m "Release v<version>"
 git push origin v<version>
 ```
 
-The `v*` tag push triggers the `release` job in `.github/workflows/ci.yml` as a pre-release gate (build + test on Linux).
-If it fails, fix the tree and move the tag before releasing.
+The `v*` tag push triggers `buildifier` and the `build_test` matrix (Linux + macOS) first, then the `release` job, which runs only if both are green.
+The release job repeat-builds and tests on Linux, then verifies the tag matches the `MODULE.bazel` version.
+If any step fails, fix the tree and move the tag before releasing.
 
 ## 3. Build the source archive
 
