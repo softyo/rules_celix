@@ -39,6 +39,27 @@ def _test_runtime_info_provider(name):
         impl = _impl,
     )
 
+def _test_default_runtime_version(name):
+    """Guard the documented default runtime against the shipped framework pin.
+
+    `//celix:default_runtime` declares the manifest contract version. It must
+    match the framework binaries pinned in third_party/celix/upstream.bzl so
+    the two axes cannot drift silently again.
+    """
+
+    def _impl(env, target):
+        env.expect.that_target(target).has_provider(CelixRuntimeInfo)
+
+        info = target[CelixRuntimeInfo]
+        env.expect.that_str(info.celix_version).equals("2.4.0")
+
+    analysis_test(
+        name = name,
+        target = "//celix:default_runtime",
+        impl = _impl,
+    )
+
 def celix_runtime_analysis_test_suite(name):
     """Convenience macro that creates all celix_runtime analysis tests."""
     _test_runtime_info_provider(name = name + "_provider")
+    _test_default_runtime_version(name = name + "_default_runtime")

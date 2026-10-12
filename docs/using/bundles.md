@@ -42,7 +42,7 @@ Besides `activator` and `symbolic_name`, `celix_bundle` accepts:
 | `filename`      | Override the output zip base name (a trailing `.zip` is normalized away). Defaults to the target name. |
 | `no_activator`  | When `True`, ships a bundle with no activator library and makes `activator` optional (default `False`). |
 | `framework`     | Convenience-macro only. How the activator links the Celix framework: `"runtime"` (default) or `"static"`. `"runtime"` is headers-only and resolves against the container runner's embedded framework at dlopen. `"static"` embeds the framework archive. A static-mode C++ bundle is not auto-startable inside a `celix_container`. |
-| `celix`         | The `celix_runtime` target declaring the manifest format to emit. Defaults to `//celix:default_runtime` (Celix 2.x). See [Targeting Celix 3.x](#targeting-celix-3x). |
+| `celix`         | The `celix_runtime` target declaring the manifest format to emit. It does NOT select or pin the framework binaries linked into the bundle; those are always the ruleset-pinned Celix 2.4.0 (see [`third_party/celix/upstream.bzl`](../../third_party/celix/upstream.bzl)). Defaults to `//celix:default_runtime` (Celix 2.x). See [Targeting Celix 3.x](#targeting-celix-3x). |
 
 ### A bundle with no activator
 
@@ -128,7 +128,9 @@ Why this ordering matters, and how it is enforced, is covered in [implementation
 
 ## Targeting Celix 3.x
 
-By default, `celix_bundle` targets the Celix 2.x runtime (`//celix:default_runtime`) and produces OSGi properties-style manifests. To target Celix 3.x with JSON manifests:
+By default, `celix_bundle` targets the Celix 2.x runtime (`//celix:default_runtime`) and produces OSGi properties-style manifests.
+A 3.x `celix_runtime` target changes the manifest format only; the framework binaries the convenience macros link (and the container runner embeds) are still the pinned 2.4.0, so container auto-start therefore stays on the 2.4.0 ABI.
+To target Celix 3.x with JSON manifests:
 
 ```python
 load("@rules_celix//celix:defs.bzl", "celix_bundle", "celix_runtime")

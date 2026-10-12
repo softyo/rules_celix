@@ -31,6 +31,16 @@ celix_runtime = rule(
     },
     doc = """Declares a Celix runtime version that bundles can reference.
 
+`celix_version` selects the **manifest format contract only**:
+it chooses `META-INF/MANIFEST.MF` (OSGi-style properties, < 3.0.0) or
+`META-INF/MANIFEST.json` (Celix-specific JSON, >= 3.0.0). It does NOT
+select or pin the framework binaries linked into bundles or containers.
+
+The framework binaries shipped by the ruleset are pinned separately in
+`third_party/celix/upstream.bzl` (currently 2.4.0). Bundles built with the
+convenience macros and containers always link that pinned framework,
+regardless of this target's value.
+
 When a `celix_bundle` targets this runtime, the bundle's manifest format
 and header conventions adapt accordingly:
 

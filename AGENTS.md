@@ -33,7 +33,8 @@ Single-source table lives in [`docs/developing/roadmap.md`](docs/developing/road
 | **0.1**   | Done         | Core `celix_bundle` rule, deterministic manifest-first zip, `CelixBundleInfo`, private_libs + resources |
 | **0.2**   | Done         | `celix_c_bundle` / `celix_cpp_bundle` convenience macros, real-Celix examples, `celix/internal/cc.bzl` refactor |
 | **0.3**   | In progress  | `celix_container` runnable (issues #8/#9/#13/#10): hermetic runner, config.properties, start-level autostart, C++ framework resolution, distributable tarball |
-| **0.4**   | Planned      | Version compatibility tests |
+| **0.4**   | Planned      | Bring-your-own-Celix-version (manifest contract vs pinned framework binaries; consumer-provided framework targets) |
+| **0.5**   | Planned      | Version compatibility tests |
 | **1.0**   | Planned      | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates |
 
 ## Repository map

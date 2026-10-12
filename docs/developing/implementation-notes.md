@@ -86,7 +86,9 @@ The framework and its native prerequisites are fetched and built hermetically:
   These are provided by the miniature checked-in library in [`third_party/celix/uuid`](../../third_party/celix/uuid) instead of a system libuuid.
 
 Celix 2.4.0 is the latest 2.x release.
-A 3.x pin would switch the manifest format to JSON and require changing `//celix:default_runtime`, which is out of scope.
+The manifest contract and the pinned framework binaries are two independent axes:
+`celix_runtime(celix_version = ...)` is the manifest-contract knob (properties < 3.0.0, JSON >= 3.0.0), while the framework binaries that the convenience macros link and the container runner embeds stay pinned to 2.4.0.
+A 3.x pin of the framework would both switch the default manifest format to JSON and require changing `//celix:default_runtime`, which is out of scope.
 Pinning the framework is the one place the ruleset *does* ship Celix.
 See `docs/using/bundles.md` for the user-facing Celix 2.x vs 3.x story.
 
@@ -109,6 +111,7 @@ When in doubt, inspect a bundle produced by official Celix CMake and match it.
 
 Targeting a Celix 3.x runtime (`celix_runtime(celix_version = "3.0.0")`) emits `META-INF/MANIFEST.json`.
 It uses `CELIX_BUNDLE_*` top-level fields instead of the OSGi properties lines.
+This selects the manifest format only; the linked framework binaries remain the ruleset-pinned 2.4.0.
 
 ## Manifest-first zip assembly
 

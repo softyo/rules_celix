@@ -73,6 +73,7 @@ test_suite(
         ":celix_convenience_test_provider_c",
         ":celix_convenience_test_provider_cpp",
         ":celix_convenience_test_provider_fields",
+        ":celix_runtime_test_default_runtime",
         ":celix_runtime_test_provider",
         ":manifest_test",
         "//tests/integration:container_tarball_test",

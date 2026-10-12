@@ -30,8 +30,9 @@ The API may change without notice until 1.0.
 | **0.1**   | Done        | Core `celix_bundle` rule: take an existing `cc_shared_library` (activator) + metadata → valid Celix zip. Manifest generation + deterministic packaging (manifest first entry). `CelixBundleInfo` provider. Support for `private_libs` and `resources`. Basic tests + one C example. |
 | **0.2**   | Done        | `celix_c_bundle` / `celix_cpp_bundle` convenience macros. They are `srcs`-only, with no explicit `activator` (that stayed `celix_bundle`'s job). It added real-Celix C and C++ examples and the shared-library refactor in `celix/internal/cc.bzl`. |
 | **0.3**   | In progress | `celix_container` runnable (hermetic runner binary, generated config, runfiles layout, start-level autostart, C++ framework resolution fix, distributable tarball). See the milestone issues #8 / #9 / #13 / #10 in [implementation-notes.md](implementation-notes.md). |
-| **0.4**   | Planned     | Version compatibility tests |
-| **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates. |
+| **0.4**   | Planned     | Bring-your-own-Celix-version: decide the design (manifest contract vs pinned framework binaries) and let consumers point bundles and the container runner at a consumer-provided framework target (see [implementation-notes.md](implementation-notes.md)) |
+| **0.5**   | Planned     | Version compatibility tests |
+| **1.0**   | Planned     | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates |
 
 ## Related
 
