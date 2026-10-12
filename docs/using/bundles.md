@@ -41,7 +41,6 @@ Besides `activator` and `symbolic_name`, `celix_bundle` accepts:
 | `group`         | `Bundle-Group` header (properties) / `CELIX_BUNDLE_GROUP` (3.x). Only emitted when non-empty. |
 | `filename`      | Override the output zip base name (a trailing `.zip` is normalized away). Defaults to the target name. |
 | `no_activator`  | When `True`, ships a bundle with no activator library and makes `activator` optional (default `False`). |
-| `framework`     | Convenience-macro only. How the activator links the Celix framework: `"runtime"` (default) or `"static"`. `"runtime"` is headers-only and resolves against the container runner's embedded framework at dlopen. `"static"` embeds the framework archive. A static-mode C++ bundle is not auto-startable inside a `celix_container`. |
 | `celix`         | The `celix_runtime` target declaring the manifest format to emit. It does NOT select or pin the framework binaries linked into the bundle; those are always the ruleset-pinned Celix 2.4.0 (see [`third_party/celix/upstream.bzl`](../../third_party/celix/upstream.bzl)). Defaults to `//celix:default_runtime` (Celix 2.x). See [Targeting Celix 3.x](#targeting-celix-3x). |
 
 ### A bundle with no activator
@@ -102,6 +101,8 @@ Both macros accept a `framework` parameter that controls how the activator links
   A static-mode **C++** bundle cannot be auto-started by a `celix_container`.
   The container rejects it at analysis.
   Use `install_only` or `framework = "runtime"` for that.
+
+The `framework` parameter is macro-only: `celix_bundle` has no such attribute, because the explicit-activator path's linking is decided by the caller's `cc_shared_library`.
 
 ## What the rule produces
 

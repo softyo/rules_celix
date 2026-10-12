@@ -170,7 +170,7 @@ The container runner (`tools/container_runner.c`) is deliberate and minimal:
 
 - It is a **single shared** `cc_binary` built once in the rules_celix repository.
   `@celix` resolves and the framework is embedded there.
-  It is copied per container via `ctx.actions.copy` into the package dir as `<name>_runner`.
+  It is copied per container by a hermetic `//tools:file_copy` action into the package dir as `<name>_runner`.
   This keeps `celix_container` free of consumer-side `@celix` and guarantees one framework instance per process.
 - The generated launcher passes the runtime directory `<name>_runtime/` as `argv[1]`.
   The runner chdirs into it, so the process working directory *is* the container directory.

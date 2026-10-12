@@ -36,7 +36,6 @@ load("//celix:defs.bzl", "celix_c_bundle")
 celix_c_bundle(
     name = "hello_bundle",
     srcs = ["src/hello_activator.c"],
-    deps = ["@celix//:framework"],
     symbolic_name = "org.example.hello",
     version = "1.0.0",
     bundle_name = "Hello World Bundle",

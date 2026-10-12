@@ -33,10 +33,8 @@ local_path_override(
 # )
 ```
 
-You must supply Apache Celix headers and libraries yourself.
-This ruleset does not vendor Celix (see [`rules_foreign_cc`](https://github.com/bazel-contrib/rules_foreign_cc)).
-The runnable `celix_container` is the one exception.
-Its runner ships with the framework embedded.
+The ruleset fetches and builds its own Apache Celix 2.4.0 (`celix_deps` in `MODULE.bazel`), so the convenience macros and the runnable `celix_container` need no consumer-supplied Celix.
+Use the explicit `activator` path of `celix_bundle`, or supply your own `@celix`, only when you need a different framework or build it yourself (see [`rules_foreign_cc`](https://github.com/bazel-contrib/rules_foreign_cc)).
 
 Build your first bundle:
 

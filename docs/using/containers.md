@@ -135,7 +135,7 @@ It auto-starts the C hello bundle (level 1) and the C++ hello bundle (level 2).
 
 The runner is a **single shared** `cc_binary` built once in the rules_celix repository.
 `@celix` resolves and the framework is embedded there.
-It is copied per container via `ctx.actions.copy`.
+It is copied per container into the package dir as `<name>_runner` by a hermetic `//tools:file_copy` action (`CelixContainerCopyRunner`), not a host `cp`.
 This keeps `celix_container` free of consumer-side `@celix` and guarantees one framework instance per process.
 For the in-depth design (why real file copies rather than symlinks, how the config is generated, why `pkg_tar` is used for the tarball), see [implementation-notes](../developing/implementation-notes.md#runner-and-container-layout-design).
 Also see the [hello_container example README](../../examples/hello_container/README.md).
