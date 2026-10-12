@@ -34,7 +34,7 @@ Until the module is on BCR, point at a local checkout or a git commit:
 ```python
 # MODULE.bazel
 
-bazel_dep(name = "rules_celix", version = "0.2.0")
+bazel_dep(name = "rules_celix", version = "0.3.0")
 local_path_override(
     module_name = "rules_celix",
     path = "../rules_celix",          # path to this repository

@@ -10,7 +10,7 @@ This ruleset lets you produce valid Celix bundles from a fully hermetic Bazel bu
 
 ## Status
 
-**v0.3.0 (in progress)**: runnable `celix_container`, C++ framework-resolution fix, deterministic distributable tarball.
+**v0.3.0 released**: runnable `celix_container`, C++ framework-resolution fix, deterministic distributable tarball.
 Not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) (BCR publication is planned for v1.0).
 Use `local_path_override` or `git_override`.
 See the [roadmap](docs/developing/roadmap.md) for full status and milestone details.
@@ -20,7 +20,7 @@ See the [roadmap](docs/developing/roadmap.md) for full status and milestone deta
 Add the ruleset to your `MODULE.bazel` (local checkout or git pin):
 
 ```python
-bazel_dep(name = "rules_celix", version = "0.2.0")
+bazel_dep(name = "rules_celix", version = "0.3.0")
 local_path_override(
     module_name = "rules_celix",
     path = "../rules_celix",          # path to this repository

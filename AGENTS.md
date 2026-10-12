@@ -20,7 +20,7 @@ This ruleset focuses only on **packaging**; it does not vendor or build the Celi
 
 Snapshot; the canonical, always-current status and milestone details live in [`docs/developing/roadmap.md`](docs/developing/roadmap.md):
 
-- v0.1.0 and v0.2.0 released; v0.3.0 in progress (`celix_container` runnable, C++ framework-resolution fix, distributable tarball)
+- v0.1.0, v0.2.0 and v0.3.0 released (`celix_container` runnable, C++ framework-resolution fix, distributable tarball)
 - Not published to the Bazel Central Registry (BCR) — deferred to v1.0
 - API may change without notice until 1.0
 
@@ -32,7 +32,7 @@ Single-source table lives in [`docs/developing/roadmap.md`](docs/developing/road
 |-----------|--------------|---------|
 | **0.1**   | Done         | Core `celix_bundle` rule, deterministic manifest-first zip, `CelixBundleInfo`, private_libs + resources |
 | **0.2**   | Done         | `celix_c_bundle` / `celix_cpp_bundle` convenience macros, real-Celix examples, `celix/internal/cc.bzl` refactor |
-| **0.3**   | In progress  | `celix_container` runnable (issues #8/#9/#13/#10): hermetic runner, config.properties, start-level autostart, C++ framework resolution, distributable tarball |
+| **0.3**   | Done         | `celix_container` runnable (issues #8/#9/#13/#10): hermetic runner, config.properties, start-level autostart, C++ framework resolution, distributable tarball |
 | **0.4**   | Planned      | Bring-your-own-Celix-version (manifest contract vs pinned framework binaries; consumer-provided framework targets) |
 | **0.5**   | Planned      | Version compatibility tests |
 | **1.0**   | Planned      | API freeze, comprehensive docs/stardoc, CI matrix (Linux + macOS), BCR submission via `.bcr/` templates |
@@ -135,7 +135,7 @@ See [`docs/developing/testing.md`](docs/developing/testing.md) for the detailed 
 
 ## Release / BCR notes
 
-- Version tags: `v0.1.0`, `v0.2.0`, …
+- Version tags: `v0.1.0`, `v0.2.0`, `v0.3.0`, …
 - Use the templates under `.bcr/` and the [publish-to-bcr](https://github.com/bazel-contrib/publish-to-bcr) workflow when ready.
 - Until BCR publication, consumers use `local_path_override` or `git_override` (documented in [docs/using/quickstart.md](docs/using/quickstart.md), canonical at [docs/using/](docs/using/)).
 
