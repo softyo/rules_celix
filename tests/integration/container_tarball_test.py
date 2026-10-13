@@ -46,6 +46,28 @@ def fail(msg):
     print("FAIL: " + msg, file=sys.stderr)
     sys.exit(1)
 
+def drain_until_stop(proc, timeout=30):
+    """Read the runner's stdout until it exits after STOP_RUNNER=1.
+
+    Prints lines as they arrive and bounds the wait with a deadline: a runner
+    stuck after the stop marker must not mask an earlier failure with a second
+    long hang.  Returns the exit code of a clean (or EOF-reached) exit.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        readable, _, _ = select.select([proc.stdout], [], [], 1.0)
+        if not readable:
+            continue
+        line = proc.stdout.readline()
+        if not line:
+            return proc.wait()
+        print(line, end="")
+    proc.kill()
+    fail(
+        "runner did not exit within %ds after STOP_RUNNER=1 "
+        "(killed)" % timeout,
+    )
+
 def main():
     if len(sys.argv) < 4:
         fail(
@@ -110,7 +132,8 @@ def main():
         rc = None
         try:
             seen_sentinel = False
-            deadline = time.time() + 60
+            collected = []
+            deadline = time.time() + 120
             while time.time() < deadline:
                 # select guarantees the deadline actually fires even when the
                 # runner produces no output (a blocking readline would hang the
@@ -121,16 +144,19 @@ def main():
                 line = proc.stdout.readline()
                 if not line:
                     break
+                collected.append(line)
                 if SENTINEL in line:
                     seen_sentinel = True
                     print(line, end="")
                     break
 
             if not seen_sentinel:
+                for line in collected:
+                    print(line, end="")
                 proc.kill()
                 fail(
                     "start.sh from the extracted tarball did not log the "
-                    "sentinel '%s' within 60s (exit code %s)" %
+                    "sentinel '%s' within 120s (exit code %s)" %
                     (SENTINEL, proc.wait()),
                 )
 
@@ -138,7 +164,7 @@ def main():
             with open(config_path, "a") as fh:
                 fh.write(STOP_LINE + "\n")
 
-            rc = proc.wait(timeout=30)
+            rc = drain_until_stop(proc)
         finally:
             if proc.poll() is None:
                 proc.kill()

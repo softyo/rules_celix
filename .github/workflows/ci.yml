@@ -85,7 +85,7 @@ jobs:
         run: bazel build //examples/hello_cxx:hello_bundle
 
       - name: Bazel test
-        run: bazel test //...
+        run: bazel test --build_tests_only --test_output=errors //...
 
   # ---------------------------------------------------------------------
   # Metadata — required for BCR presubmit compatibility

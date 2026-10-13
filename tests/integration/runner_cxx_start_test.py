@@ -23,6 +23,7 @@ runner exits 0.
 """
 
 import os
+import select
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,29 @@ def fail(msg):
     """Print a failure message and exit non-zero."""
     print("FAIL: " + msg, file=sys.stderr)
     sys.exit(1)
+
+
+def drain_until_stop(proc, timeout=30):
+    """Read the runner's stdout until it exits after STOP_RUNNER=1.
+
+    Prints lines as they arrive and bounds the wait with a deadline: a runner
+    stuck after the stop marker must not mask an earlier failure with a second
+    long hang.  Returns the exit code of a clean (or EOF-reached) exit.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        readable, _, _ = select.select([proc.stdout], [], [], 1.0)
+        if not readable:
+            continue
+        line = proc.stdout.readline()
+        if not line:
+            return proc.wait()
+        print(line, end="")
+    proc.kill()
+    fail(
+        "runner did not exit within %ds after STOP_RUNNER=1 "
+        "(killed)" % timeout,
+    )
 
 
 def main():
@@ -109,7 +133,7 @@ def main():
             with open(copied_config, "a") as fh:
                 fh.write(STOP_LINE + "\n")
 
-            rc = proc.wait(timeout=30)
+            rc = drain_until_stop(proc)
         finally:
             if proc.poll() is None:
                 proc.kill()
