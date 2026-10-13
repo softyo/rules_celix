@@ -137,6 +137,13 @@ py_test(
 )
 
 py_test(
+    name = "celix_zip_nested_resources_test",
+    srcs = ["celix_zip_nested_resources_test.py"],
+    main = "celix_zip_nested_resources_test.py",
+    deps = ["//tools:celix_zip_lib"],
+)
+
+py_test(
     name = "validate_macro_c_bundle_test",
     srcs = ["validate_bundle.py"],
     args = [

@@ -145,6 +145,32 @@ def _manifest_directory(archive_path):
     return archive_path[:idx + 1]
 
 
+def _required_directories(archive_paths):
+    """Return the ordered, deduplicated parent directories for file destinations.
+
+    Celix's bundle extractor (`celix_utils_extractZipInternal`) creates only
+    the final extraction directory and relies on every ancestor directory
+    being present as an explicit zip entry.  Resources mapped to nested
+    destinations (e.g. `tests/testdata/configs/nested.txt`) therefore require
+    explicit entries for each ancestor (`tests/`, `tests/testdata/`,
+    `tests/testdata/configs/`).
+
+    Args:
+        archive_paths: iterable of file archive paths inside the zip.
+
+    Returns:
+        list of directory strings with trailing '/', ordered so parents
+        precede children, deduplicated across all inputs.
+    """
+    required = {}
+    for archive_path in archive_paths:
+        parts = archive_path.split("/")
+        for i in range(1, len(parts)):
+            directory = "/".join(parts[:i]) + "/"
+            required.setdefault(directory, len(required))
+    return sorted(required, key=required.get)
+
+
 def _parse_args(args):
     """Parse the --manifest/--manifest-path/--output --add and --copy flags.
 
@@ -279,6 +305,23 @@ def validate_bundle_zip(path):
         if parent not in dir_names:
             return "Zip archive %s is missing the required directory entry '%s'" % (path, parent)
 
+        # The same extractor limitation applies to every other file entry:
+        # resources (or libraries) stored under a nested destination are
+        # uninstallable unless each ancestor directory is present as an
+        # explicit entry.  Walk parents and fail with a specific message so a
+        # silently-uninstallable zip becomes a build-time error.
+        for file_entry in file_entries:
+            missing = [
+                directory
+                for directory in _required_directories([file_entry.filename])
+                if directory != parent and directory not in dir_names
+            ]
+            if missing:
+                return (
+                    "Zip archive %s is missing directory entry '%s' required by file entry '%s'"
+                    % (path, missing[0], file_entry.filename)
+                )
+
         for entry in entries:
             if entry.date_time != ZIP_EPOCH:
                 return "Entry '%s' of %s has non-deterministic timestamp %s" % (
@@ -336,6 +379,21 @@ def main():
                 _add_directory(zf, manifest_dir, 0o755)
 
             _add_file(zf, manifest_path, manifest_archive_path, 0o644)
+
+            # The Celix extractor creates no intermediate directories, so any
+            # file in a nested destination (e.g. a resource mapped to
+            # tests/testdata/configs/nested.txt) needs its ancestors present
+            # as explicit directory entries.  Emit them (parents first,
+            # deduplicated) before the files that live under them.  The
+            # manifest's own directory is excluded: it was already emitted
+            # above.
+            required_dirs = [
+                d
+                for d in _required_directories([dest for (_, dest, _) in entries])
+                if d != manifest_dir
+            ]
+            for directory in required_dirs:
+                _add_directory(zf, directory, 0o755)
 
             # Then write the rest in the exact order given.
             for (src, dest, mode) in entries:

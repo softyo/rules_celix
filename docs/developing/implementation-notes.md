@@ -118,6 +118,8 @@ This selects the manifest format only; the linked framework binaries remain the 
 `tools/celix_zip.py` creates the deterministic bundle zip with the manifest as the first *file* entry.
 It is preceded by its explicit parent-directory entry.
 Celix's bundle extractor requires both.
+Every other file entry whose destination is nested under a directory currently also gets its ancestors emitted as explicit directory entries (in parent-first order, deduplicated), because the extractor opens each entry at `<extract>/<entry name>` without creating intermediate directories.
+The shared `validate_bundle_zip` contract enforces that every file entry's parent directories are present, so a zip that Celix could not install fails at build time instead of at framework boot.
 
 **Why not `rules_pkg`?** `pkg_zip` sorts entries alphabetically by destination path (see `_load_manifest` in `build_zip.py`).
 Since `M` sorts after `l` (for `lib*.so`), `pkg_zip` would place the library before the manifest, producing an invalid Celix bundle.

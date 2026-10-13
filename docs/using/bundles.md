@@ -35,7 +35,7 @@ Besides `activator` and `symbolic_name`, `celix_bundle` accepts:
 | Attribute       | Description                                                                  |
 |-----------------|------------------------------------------------------------------------------|
 | `private_libs`  | Extra private shared libraries bundled into the zip root (mode 0755). Each entry may be a `cc_shared_library` target or a plain `.so`/`.dylib`/`.dll` file. Emitted in the `Private-Library` manifest header. |
-| `resources`     | Files (e.g. a `filegroup`) bundled preserving their package-relative path, so subdirectories are supported (mode 0644). |
+| `resources`     | Files (e.g. a `filegroup`) bundled preserving their package-relative path, so subdirectories are supported (mode 0644). Every nested destination gets explicit parent-directory zip entries (Celix's extractor does not create intermediate directories, see [implementation-notes](../developing/implementation-notes.md#manifest-first-zip-assembly)). |
 | `headers`       | Custom manifest headers. Emitted verbatim as `Key: value` lines (properties) or as top-level JSON string fields (3.x manifest). |
 | `description`   | `Bundle-Description` header (properties) / `CELIX_BUNDLE_DESCRIPTION` (3.x). Only emitted when non-empty. |
 | `group`         | `Bundle-Group` header (properties) / `CELIX_BUNDLE_GROUP` (3.x). Only emitted when non-empty. |
