@@ -33,6 +33,48 @@ import tarfile
 import tempfile
 import time
 
+
+class PipeReader:
+    """Deadline-aware line reader over a subprocess stdout pipe.
+
+    Reads the raw file descriptor instead of the TextIOWrapper: mixing
+    `select` on the wrapper with `readline()` over-reads the pipe into
+    Python's stdio buffer, and the buffered sentinel is then invisible to
+    `select`, hanging the test even though the runner is healthy.  `readline`
+    returns the next line (without its trailing newline), `None` at EOF, and
+    raises `TimeoutError` when `timeout` seconds elapse without a full line.
+    """
+
+    def __init__(self, proc, timeout):
+        self._fd = proc.stdout.fileno()
+        self._buf = b""
+        self._timeout = timeout
+        self._deadline = time.time() + timeout
+        os.set_blocking(self._fd, False)
+
+    def readline(self):
+        while b"\n" not in self._buf:
+            if time.time() >= self._deadline:
+                raise TimeoutError(
+                    "no output from the child within %ds" % self._timeout,
+                )
+            readable, _, _ = select.select([self._fd], [], [], 1.0)
+            if not readable:
+                continue
+            try:
+                chunk = os.read(self._fd, 65536)
+            except (BlockingIOError, InterruptedError):
+                continue
+            if not chunk:
+                if self._buf:
+                    line = self._buf.decode(errors="replace")
+                    self._buf = b""
+                    return line
+                return None
+            self._buf += chunk
+        raw, self._buf = self._buf.split(b"\n", 1)
+        return raw.decode(errors="replace")
+
 # The fixed sentinel line the runner logs via the framework bundle context once
 # the framework has started.  Grepping only this substring keeps the test
 # robust against verbose INFO framework logs.
@@ -41,12 +83,17 @@ SENTINEL = "rules_celix container runner started"
 # Key/value the test appends to the extracted config to ask the runner to stop.
 STOP_LINE = "STOP_RUNNER=1"
 
+SENTINEL_TIMEOUT = 120
+STOP_TIMEOUT = 30
+
+
 def fail(msg):
     """Print a failure message and exit non-zero."""
     print("FAIL: " + msg, file=sys.stderr)
     sys.exit(1)
 
-def drain_until_stop(proc, timeout=30):
+
+def drain_until_stop(proc, reader, timeout=STOP_TIMEOUT):
     """Read the runner's stdout until it exits after STOP_RUNNER=1.
 
     Prints lines as they arrive and bounds the wait with a deadline: a runner
@@ -55,11 +102,11 @@ def drain_until_stop(proc, timeout=30):
     """
     deadline = time.time() + timeout
     while time.time() < deadline:
-        readable, _, _ = select.select([proc.stdout], [], [], 1.0)
-        if not readable:
-            continue
-        line = proc.stdout.readline()
-        if not line:
+        try:
+            line = reader.readline()
+        except TimeoutError:
+            break
+        if line is None:
             return proc.wait()
         print(line, end="")
     proc.kill()
@@ -67,6 +114,7 @@ def drain_until_stop(proc, timeout=30):
         "runner did not exit within %ds after STOP_RUNNER=1 "
         "(killed)" % timeout,
     )
+
 
 def main():
     if len(sys.argv) < 4:
@@ -133,16 +181,14 @@ def main():
         try:
             seen_sentinel = False
             collected = []
-            deadline = time.time() + 120
-            while time.time() < deadline:
-                # select guarantees the deadline actually fires even when the
-                # runner produces no output (a blocking readline would hang the
-                # test until Bazel's own timeout instead of failing here).
-                readable, _, _ = select.select([proc.stdout], [], [], 1.0)
-                if not readable:
-                    continue
-                line = proc.stdout.readline()
-                if not line:
+            reader = PipeReader(proc, SENTINEL_TIMEOUT)
+            while True:
+                try:
+                    line = reader.readline()
+                except TimeoutError:
+                    line = None
+                    break
+                if line is None:
                     break
                 collected.append(line)
                 if SENTINEL in line:
@@ -156,15 +202,15 @@ def main():
                 proc.kill()
                 fail(
                     "start.sh from the extracted tarball did not log the "
-                    "sentinel '%s' within 120s (exit code %s)" %
-                    (SENTINEL, proc.wait()),
+                    "sentinel '%s' within %ds (exit code %s)" %
+                    (SENTINEL, SENTINEL_TIMEOUT, proc.wait()),
                 )
 
             # Ask the runner to stop cleanly, then assert a clean exit.
             with open(config_path, "a") as fh:
                 fh.write(STOP_LINE + "\n")
 
-            rc = drain_until_stop(proc)
+            rc = drain_until_stop(proc, reader)
         finally:
             if proc.poll() is None:
                 proc.kill()
@@ -174,6 +220,7 @@ def main():
 
     print("PASS: tarball extracted and ran without Bazel: sentinel logged, "
           "clean exit on STOP_RUNNER=1.")
+
 
 if __name__ == "__main__":
     main()
