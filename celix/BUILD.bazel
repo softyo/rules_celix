@@ -24,10 +24,12 @@ package(default_visibility = ["//visibility:public"])
 
 # `celix_version` is the manifest contract version only: it selects the
 # MANIFEST.MF (properties, < 3.0.0) vs MANIFEST.json (JSON, >= 3.0.0) format
-# (see the threshold in celix/internal/manifest.bzl). It does not pin the
-# framework binaries linked into bundles/containers; those are pinned separately
-# in third_party/celix/upstream.bzl (currently 2.4.0) and must stay a 2.x value
-# until a 3.x pin is adopted.
+# (see the threshold in celix/internal/manifest.bzl). `framework` is the
+# framework package label string selecting the framework binaries linked into
+# bundles, defaulting to @rules_celix//third_party/celix. The two axes are
+# orthogonal: `celix_version` never selects binaries and `framework` never
+# selects a manifest format. A `celix_version` of 3.x changes only the
+# manifest format.
 celix_runtime(
     name = "default_runtime",
     celix_version = "2.4.0",

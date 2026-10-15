@@ -15,6 +15,28 @@ Not yet on the [Bazel Central Registry (BCR)](https://registry.bazel.build/) (BC
 Use `local_path_override` or `git_override`.
 See the [roadmap](docs/developing/roadmap.md) for full status and milestone details.
 
+## Versioning: bottom line (to rephrase in v0.5.0)
+
+This section records the framework versioning strategy agreed during the
+bring-your-own-Celix milestone (0.4) planning. It is a temporary reminder and
+will be rephrased when the version-compatibility tests land (v0.5.0).
+
+- `rules_celix` declares its `celix` dependency floor at the minimum version it
+  tests, currently 2.4.0, not an arbitrarily low value like 2.0.0.
+- The `celix` Bazel module (the `celix-bazel` repo) releases one module version
+  per Apache Celix upstream release, by necessity, but never in lockstep with
+  `rules_celix`.
+- Once `rules_celix` depends on the `celix` module instead of pinning its own
+  fetch, one `rules_celix` release covers all supported Celix versions.
+- The consumer selects the Celix version through `bazel_dep` and Bazel's minimal
+  version selection (MVS); the higher declared version wins.
+- The version-permutation burden moves into CI as version-compatibility tests
+  (milestone 0.5), not into parallel `rules_celix` releases.
+- Keep the `celix` module's `compatibility_level` and public target names stable
+  for the single-release model to hold.
+- Raise the floor deliberately, and only when support for older Celix versions
+  is dropped.
+
 ## Quick start
 
 Add the ruleset to your `MODULE.bazel` (local checkout or git pin):

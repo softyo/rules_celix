@@ -155,6 +155,7 @@ def celix_c_bundle(
         linkopts = [],
         includes = [],
         framework = "runtime",
+        framework_package = None,
         version = "0.0.0",
         bundle_name = "",
         celix = "@rules_celix//celix:default_runtime",
@@ -188,6 +189,15 @@ def celix_c_bundle(
             framework at dlopen time (required for C++ bundles auto-started by a
             `celix_container`). `"static"` embeds the framework archive for a
             self-contained .so usable outside a runner.
+        framework_package (str): Package label string (repo name, optionally
+            followed by a package path) of the Celix framework package to link
+            the activator against. Defaults to
+            `@rules_celix//third_party/celix`. When the `celix` runtime's
+            `framework` differs from that default, the SAME `framework_package`
+            value must be passed here: the runtime's `framework` drives the
+            manifest format and provider bookkeeping, while this macro's
+            `framework_package` drives the actual link. The referenced package
+            must expose `:framework` and `:framework_static`.
         version (str): Bundle version. Defaults to `"0.0.0"`.
         bundle_name (str): Bundle display name; defaults to symbolic_name in the rule.
         celix (Label): Celix runtime target; defaults to `//celix:default_runtime`.
@@ -219,6 +229,7 @@ def celix_c_bundle(
         linkopts = linkopts,
         includes = includes,
         framework = framework,
+        framework_package = framework_package if framework_package != None else "@rules_celix//third_party/celix",
         **kwargs
     )
     celix_bundle(
@@ -248,6 +259,7 @@ def celix_cpp_bundle(
         linkopts = [],
         includes = [],
         framework = "runtime",
+        framework_package = None,
         version = "0.0.0",
         bundle_name = "",
         celix = "@rules_celix//celix:default_runtime",
@@ -284,6 +296,15 @@ def celix_cpp_bundle(
             self-contained .so usable outside a runner (a static C++ bundle
             cannot be auto-started inside a `celix_container`; the container
             fails analysis with a clear message).
+        framework_package (str): Package label string (repo name, optionally
+            followed by a package path) of the Celix framework package to link
+            the activator against. Defaults to
+            `@rules_celix//third_party/celix`. When the `celix` runtime's
+            `framework` differs from that default, the SAME `framework_package`
+            value must be passed here: the runtime's `framework` drives the
+            manifest format and provider bookkeeping, while this macro's
+            `framework_package` drives the actual link. The referenced package
+            must expose `:framework` and `:framework_static`.
         version (str): Bundle version. Defaults to `"0.0.0"`.
         bundle_name (str): Bundle display name; defaults to symbolic_name in the rule.
         celix (Label): Celix runtime target; defaults to `//celix:default_runtime`.
@@ -315,6 +336,7 @@ def celix_cpp_bundle(
         linkopts = linkopts,
         includes = includes,
         framework = framework,
+        framework_package = framework_package if framework_package != None else "@rules_celix//third_party/celix",
         **kwargs
     )
     celix_bundle(

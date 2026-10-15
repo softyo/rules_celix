@@ -33,6 +33,9 @@ CelixBundleInfo = provider(
         "uses_cpp": "bool: whether the activator is a C++ bundle (one or more " +
                     ".cc/.cpp/.cxx sources). Only used by the container's " +
                     "auto-start guard for static-mode bundles.",
+        "framework": "string: the framework package the bundle's activator links " +
+                     "against, taken from its celix_runtime's framework attribute. " +
+                     "Used by the container's per-framework uniformity check.",
     },
 )
 
@@ -57,5 +60,10 @@ CelixRuntimeInfo = provider(
     doc = "Describes a Celix runtime version and its bundle manifest conventions.",
     fields = {
         "celix_version": "string: Semantic version of the targeted Celix runtime, e.g. '2.4.0' or '3.0.0'.",
+        "framework": "string: the framework package string selecting the Celix " +
+                     "framework binaries the targeted runtime links against, e.g. " +
+                     "'@rules_celix//third_party/celix'. The referenced package must " +
+                     "expose :framework (headers-only) and :framework_static (full " +
+                     "static archive).",
     },
 )

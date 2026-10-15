@@ -84,7 +84,7 @@
     "//third_party/celix:upstream.bzl%celix_deps": {
       "general": {
         "bzlTransitiveDigest": "bck0+K8jktzQqmFaEJe2mHHAPcRu5MazNqxpkWeRYYU=",
-        "usagesDigest": "BjpUT2Tlkb2CmnLtWiYMCwxKKLmRDdxkWjaQqOI+Quc=",
+        "usagesDigest": "F7TaJ7jsloB/oJ0lFdcia7wvGRketS65KcziLY8CB8Y=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},

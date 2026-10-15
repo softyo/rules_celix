@@ -31,6 +31,9 @@ def _test_bundle_info_provider(name):
         env.expect.that_str(info.symbolic_name).equals("com.example.test")
         env.expect.that_str(info.version).equals("1.2.3")
 
+        # The default runtime reports the canonical framework package.
+        env.expect.that_str(info.framework).equals("@rules_celix//third_party/celix")
+
         # Output .zip file: the file is named after the celix_bundle target.
         env.expect.that_file(info.bundle).path().contains("_subject.zip")
 
@@ -44,6 +47,27 @@ def _test_bundle_info_provider(name):
         activator = "//tests/testdata:dummy_lib",
         symbolic_name = "com.example.test",
         version = "1.2.3",
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+    )
+
+def _test_bundle_framework_explicit(name):
+    """Verify a celix_bundle with a custom celix runtime reports the runtime's framework."""
+
+    def _impl(env, target):
+        info = target[CelixBundleInfo]
+        env.expect.that_str(info.framework).equals("//tests/testdata")
+
+    celix_bundle(
+        name = name + "_subject",
+        activator = "//tests/testdata:dummy_lib",
+        celix = "//tests/testdata:celix_v3_fake_fw",
+        symbolic_name = "com.example.framework",
         tags = ["manual"],
     )
 
@@ -121,6 +145,7 @@ def _test_missing_activator_fails(name):
 def celix_bundle_analysis_test_suite(name):
     """Convenience macro that creates all celix_bundle analysis tests."""
     _test_bundle_info_provider(name = name + "_provider")
+    _test_bundle_framework_explicit(name = name + "_framework_explicit")
     _test_output_filename(name = name + "_filename")
     _test_no_activator(name = name + "_no_activator")
     _test_missing_activator_fails(name = name + "_missing_activator")

@@ -19,6 +19,7 @@ load("//celix:providers.bzl", "CelixRuntimeInfo")
 def _celix_runtime_impl(ctx):
     return [CelixRuntimeInfo(
         celix_version = ctx.attr.celix_version,
+        framework = ctx.attr.framework,
     )]
 
 celix_runtime = rule(
@@ -28,21 +29,28 @@ celix_runtime = rule(
             mandatory = True,
             doc = "Semantic version of the targeted Celix runtime, e.g. '2.4.0' or '3.0.0'.",
         ),
+        "framework": attr.string(
+            default = "@rules_celix//third_party/celix",
+            doc = "Framework package label string selecting the Celix framework " +
+                  "binaries. The referenced package must expose :framework " +
+                  "(headers-only) and :framework_static (full static archive).",
+        ),
     },
     doc = """Declares a Celix runtime version that bundles can reference.
 
 `celix_version` selects the **manifest format contract only**:
 it chooses `META-INF/MANIFEST.MF` (OSGi-style properties, < 3.0.0) or
-`META-INF/MANIFEST.json` (Celix-specific JSON, >= 3.0.0). It does NOT
-select or pin the framework binaries linked into bundles or containers.
+`META-INF/MANIFEST.json` (Celix-specific JSON, >= 3.0.0).
 
-The framework binaries shipped by the ruleset are pinned separately in
-`third_party/celix/upstream.bzl` (currently 2.4.0). Bundles built with the
-convenience macros and containers always link that pinned framework,
-regardless of this target's value.
+`framework` selects the framework binaries linked into bundles: a package
+label string (repo name, optionally followed by a package path) that must
+expose `:framework` (headers-only) and `:framework_static` (full static
+archive). It defaults to `@rules_celix//third_party/celix`, the framework
+bundle pinned by the ruleset.
 
-When a `celix_bundle` targets this runtime, the bundle's manifest format
-and header conventions adapt accordingly:
+The two attributes are orthogonal: `celix_version` never selects binaries and
+`framework` never selects a manifest format. A bundle's manifest format adapts
+to the runtime's `celix_version`:
 
 * Celix 1.x / 2.x → `META-INF/MANIFEST.MF` with OSGi-style properties headers.
 * Celix 3.x → `META-INF/MANIFEST.json` with Celix-specific JSON headers.

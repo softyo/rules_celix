@@ -155,13 +155,14 @@ def _test_macro_copts_linkopts_accepted(name):
 
 def _test_macro_provider_fields_defaults(name):
     """Verify CelixBundleInfo exposes the framework link-mode metadata for the
-    default (runtime) mode: link_mode = "runtime" and uses_cpp matching the
-    source language."""
+    default (runtime) mode: link_mode = "runtime", uses_cpp matching the
+    source language, and the canonical default framework package."""
 
     def _impl(env, target):
         info = target[CelixBundleInfo]
         env.expect.that_str(info.link_mode).equals("runtime")
         env.expect.that_bool(info.uses_cpp).equals(False)
+        env.expect.that_str(info.framework).equals("@rules_celix//third_party/celix")
 
     celix_c_bundle(
         name = name + "_subject",
@@ -268,6 +269,70 @@ def _test_macro_cpp_extension_static(name):
         impl = _impl,
     )
 
+def _test_macro_framework_explicit_ok(name):
+    """Verify a celix_c_bundle with a custom celix runtime AND an explicit
+    framework_package links successfully against the in-repo fake framework package.
+
+    The subject pairs `celix = ":celix_v3_fake_fw"` (whose framework is
+    "//tests/testdata") with `framework_package = "//tests/testdata"`, so the
+    generated activator links `@//tests/testdata:framework` and the CelixBundleInfo
+    must report the runtime's framework. Analysis succeeding proves the
+    macro-generated link dep resolves.
+    """
+
+    def _impl(env, target):
+        env.expect.that_target(target).has_provider(CelixBundleInfo)
+
+        info = target[CelixBundleInfo]
+        env.expect.that_str(info.framework).equals("//tests/testdata")
+
+    celix_c_bundle(
+        name = name + "_subject",
+        symbolic_name = "com.example.macro_framework",
+        srcs = ["//tests/testdata:dummy_activator.c"],
+        celix = "//tests/testdata:celix_v3_fake_fw",
+        framework_package = "//tests/testdata",
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+    )
+
+def _test_macro_framework_package_bad_fails(name):
+    """Verify framework_package is forwarded into the activator link by pointing it at a
+    package that does not expose the framework convention.
+
+    If the macro ignored framework_package and fell back to the canonical default label
+    @rules_celix//third_party/celix:framework, the default would resolve and analysis
+    would pass. `//tests` exists as a package but exposes no `:framework` target, so a
+    forwarded package fails analysis with a missing-target error while the default label
+    keeps resolving. Expecting failure proves the macro forwarded the bad package into
+    the generated cc_library dep.
+    """
+
+    def _impl(env, target):
+        env.expect.that_target(target).failures().contains_predicate(
+            matching.contains("//tests:framework"),
+        )
+
+    celix_c_bundle(
+        name = name + "_subject",
+        symbolic_name = "com.example.macro_framework_bad",
+        srcs = ["//tests/testdata:dummy_activator.c"],
+        framework_package = "//tests",
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+        expect_failure = True,
+    )
+
 def celix_convenience_analysis_test_suite(name):
     """Convenience macro that creates all convenience-macro analysis tests."""
     _test_macro_c_provider(name = name + "_provider_c")
@@ -276,6 +341,8 @@ def celix_convenience_analysis_test_suite(name):
     _test_macro_missing_srcs_fails(name = name + "_missing_srcs")
     _test_macro_copts_linkopts_accepted(name = name + "_copts_linkopts")
     _test_macro_provider_fields_defaults(name = name + "_provider_fields")
+    _test_macro_framework_explicit_ok(name = name + "_framework_explicit")
+    _test_macro_framework_package_bad_fails(name = name + "_framework_package_bad")
     _test_macro_cpp_provider_fields(name = name + "_cpp_provider_fields")
     _test_macro_cpp_extension(name = name + "_cpp_ext_dot_c_upper", src = "//tests/testdata:dummy_activator_ext.C", sym = "com.example.macro_cpp_ext_c_upper")
     _test_macro_cpp_extension_static(name = name + "_cpp_ext_static")

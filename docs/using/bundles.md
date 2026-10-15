@@ -41,7 +41,7 @@ Besides `activator` and `symbolic_name`, `celix_bundle` accepts:
 | `group`         | `Bundle-Group` header (properties) / `CELIX_BUNDLE_GROUP` (3.x). Only emitted when non-empty. |
 | `filename`      | Override the output zip base name (a trailing `.zip` is normalized away). Defaults to the target name. |
 | `no_activator`  | When `True`, ships a bundle with no activator library and makes `activator` optional (default `False`). |
-| `celix`         | The `celix_runtime` target declaring the manifest format to emit. It does NOT select or pin the framework binaries linked into the bundle; those are always the ruleset-pinned Celix 2.4.0 (see [`third_party/celix/upstream.bzl`](../../third_party/celix/upstream.bzl)). Defaults to `//celix:default_runtime` (Celix 2.x). See [Targeting Celix 3.x](#targeting-celix-3x). |
+| `celix`         | The `celix_runtime` target declaring the manifest format to emit and the framework package selecting the framework binaries linked into the bundle. Defaults to `//celix:default_runtime` (Celix 2.x, `@rules_celix//third_party/celix`). See [Targeting Celix 3.x](#targeting-celix-3x). |
 
 ### A bundle with no activator
 
@@ -104,6 +104,14 @@ Both macros accept a `framework` parameter that controls how the activator links
 
 The `framework` parameter is macro-only: `celix_bundle` has no such attribute, because the explicit-activator path's linking is decided by the caller's `cc_shared_library`.
 
+The macros also accept a `framework_package` parameter (default `@rules_celix//third_party/celix`): a package label string (repo name, optionally followed by a package path) selecting *which* framework package to link the activator against.
+The referenced package must expose two targets following the framework-package convention: `:framework` (headers-only, for `framework = "runtime"`) and `:framework_static` (full static archive, for `framework = "static"`).
+
+When the bundle's `celix` runtime declares a non-default `framework` (see below), the same value must be passed as `framework_package` to the macro.
+The runtime's `framework` drives the manifest format and the provider-level bookkeeping (and the container's per-framework consistency check); the macro's `framework_package` drives the actual link. The two must match.
+
+Packages inside the main repository are written without a colon target part, e.g. `"//tests/testdata"` (the macro appends the `:framework` / `:framework_static` suffix itself).
+
 ## What the rule produces
 
 A Celix bundle zip with at least:
@@ -130,7 +138,8 @@ Why this ordering matters, and how it is enforced, is covered in [implementation
 ## Targeting Celix 3.x
 
 By default, `celix_bundle` targets the Celix 2.x runtime (`//celix:default_runtime`) and produces OSGi properties-style manifests.
-A 3.x `celix_runtime` target changes the manifest format only; the framework binaries the convenience macros link (and the container runner embeds) are still the pinned 2.4.0, so container auto-start therefore stays on the 2.4.0 ABI.
+A 3.x `celix_runtime` target changes the manifest format only: the manifest format and the framework package are orthogonal.
+The runtime's `framework` package (default `@rules_celix//third_party/celix`) selects the framework binaries the convenience macros link.
 To target Celix 3.x with JSON manifests:
 
 ```python

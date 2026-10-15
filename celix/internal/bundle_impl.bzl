@@ -90,6 +90,7 @@ def _celix_bundle_impl_fn(ctx):
             private_libs = private_lib_files,
             link_mode = link_mode,
             uses_cpp = ctx.attr.uses_cpp,
+            framework = ctx.attr.celix[CelixRuntimeInfo].framework,
         ),
     ]
 

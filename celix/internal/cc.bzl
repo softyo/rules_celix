@@ -52,7 +52,7 @@ def get_shared_library_file(library_target):
 
     fail("Could not locate a shared library (.so/.dylib/.dll) in target %s" % library_target.label)
 
-def create_activator_shared_library(name, srcs, deps, copts, linkopts, includes, framework = "runtime", **kwargs):
+def create_activator_shared_library(name, srcs, deps, copts, linkopts, includes, framework = "runtime", framework_package = "@rules_celix//third_party/celix", **kwargs):
     """Define the cc_library + cc_shared_library pair backing a bundle macro.
 
     The cc_library (named `<name>_activator_lib`) compiles `srcs`; the cc_shared_library
@@ -73,6 +73,15 @@ def create_activator_shared_library(name, srcs, deps, copts, linkopts, includes,
             is linked with `-Wl,-undefined,dynamic_lookup` so ld64 accepts those
             undefined symbols. `"static"` embeds the framework archive
             for self-contained .so bundles outside a runner.
+        framework_package (str): Package label string (repo name, optionally
+            followed by a package path) of the Celix framework package to link.
+            `"runtime"` links `<package>:framework`; `"static"` links
+            `<package>:framework_static`. The value is written as a
+            fully-qualified label reference to an external repo, e.g.
+            `"@rules_celix//third_party/celix"`, or, for an in-repo package,
+            `"//some/package"`. Defaults to
+            `"@rules_celix//third_party/celix"`, which reproduces the pre-#14
+            hardcoded labels.
         **kwargs: Attributes forwarded to both generated targets (tags, visibility, testonly).
 
     Returns:
@@ -81,13 +90,13 @@ def create_activator_shared_library(name, srcs, deps, copts, linkopts, includes,
     effective_deps = deps
     user_link_flags = []
     if framework == "runtime":
-        effective_deps = deps + ["@rules_celix//third_party/celix:framework"]
+        effective_deps = deps + ["%s:framework" % framework_package]
 
         # ld64 rejects undefined symbols in a dylib by default; runtime-mode
         # activators rely on them, so allow them on macOS (no-op elsewhere).
         user_link_flags = _RUNTIME_MACOS_LINKOPTS
     elif framework == "static":
-        effective_deps = deps + ["@rules_celix//third_party/celix:framework_static"]
+        effective_deps = deps + ["%s:framework_static" % framework_package]
     else:
         fail(
             "create_activator_shared_library: invalid framework mode '%s' — " % framework +

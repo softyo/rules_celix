@@ -26,10 +26,12 @@ def _test_runtime_info_provider(name):
 
         info = target[CelixRuntimeInfo]
         env.expect.that_str(info.celix_version).equals("3.0.0")
+        env.expect.that_str(info.framework).equals("//tests/testdata")
 
     celix_runtime(
         name = name + "_subject",
         celix_version = "3.0.0",
+        framework = "//tests/testdata",
         tags = ["manual"],
     )
 
@@ -44,7 +46,8 @@ def _test_default_runtime_version(name):
 
     `//celix:default_runtime` declares the manifest contract version. It must
     match the framework binaries pinned in third_party/celix/upstream.bzl so
-    the two axes cannot drift silently again.
+    the two axes cannot drift silently again, and it must report the canonical
+    default framework package.
     """
 
     def _impl(env, target):
@@ -52,6 +55,7 @@ def _test_default_runtime_version(name):
 
         info = target[CelixRuntimeInfo]
         env.expect.that_str(info.celix_version).equals("2.4.0")
+        env.expect.that_str(info.framework).equals("@rules_celix//third_party/celix")
 
     analysis_test(
         name = name,

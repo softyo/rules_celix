@@ -67,6 +67,35 @@ celix_runtime(
     celix_version = "3.0.0",
 )
 
+# Fake framework package conforming to the framework-package convention
+# (exposes :framework headers-only and :framework_static archive) so analysis
+# tests can point framework_package / celix_runtime.framework at a real,
+# resolvable in-repo package without building a second Celix. The convention is
+# identical to @rules_celix//third_party/celix, which aliases
+# @celix//:framework and @celix//:framework_static.
+cc_library(
+    name = "framework",
+    hdrs = ["dummy_activator.h"],
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "framework_static",
+    srcs = ["dummy_activator.c"],
+    hdrs = ["dummy_activator.h"],
+    tags = ["manual"],
+    alwayslink = True,
+)
+
+# A Celix 3.x runtime whose framework binaries come from the fake framework
+# package above (linked via framework_package = "//tests/testdata" on the
+# convenience macros). The integration test's :celix_v3 remains untouched.
+celix_runtime(
+    name = "celix_v3_fake_fw",
+    celix_version = "3.0.0",
+    framework = "//tests/testdata",
+)
+
 celix_bundle(
     name = "test_bundle_v3",
     activator = ":dummy_lib",

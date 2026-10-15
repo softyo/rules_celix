@@ -44,6 +44,7 @@ test_suite(
     name = "all_tests",
     tests = [
         ":celix_bundle_test_filename",
+        ":celix_bundle_test_framework_explicit",
         ":celix_bundle_test_missing_activator",
         ":celix_bundle_test_no_activator",
         ":celix_bundle_test_provider",
@@ -68,6 +69,8 @@ test_suite(
         ":celix_convenience_test_cpp_ext_static",
         ":celix_convenience_test_cpp_provider_fields_runtime",
         ":celix_convenience_test_cpp_provider_fields_static",
+        ":celix_convenience_test_framework_explicit",
+        ":celix_convenience_test_framework_package_bad",
         ":celix_convenience_test_includes",
         ":celix_convenience_test_missing_srcs",
         ":celix_convenience_test_provider_c",
