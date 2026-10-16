@@ -32,11 +32,13 @@ AUTO_START_KEYS = ["CELIX_AUTO_START_%d" % i for i in range(AUTO_START_MIN_LEVEL
 AUTO_INSTALL_KEY = "CELIX_AUTO_INSTALL"
 
 def container_runner_file_name(name):
-    """Return the per-container runner file name for the given target name.
+    """Return the per-container runner target name / output basename for a container.
 
-    The single source of truth for the runner copy's basename.  Both the rule
-    (`declare_file`) and the celix_container macro's `start_sh` launcher use
-    it, so the convention lives in exactly one place.
+    The single source of truth for the runner's name: the celix_container
+    macro names the generated per-container runner `cc_binary` with it (so the
+    binary's output basename is exactly `<name>_runner`), and the runfiles
+    rule's launcher, the tarball step, and the integration tests use the same
+    value, so the convention lives in exactly one place.
 
     Args:
         name: string, the celix_container target name.

@@ -224,10 +224,10 @@ py_test(
 # waits for the fixed sentinel line, writes STOP_RUNNER=1, and asserts a clean
 # exit 0.
 #
-# The runner copy is rule-internal (no <name>_runner target anymore); the test
-# derives its path from the container name + the config rootpath:
-# config sits at <pkg>/<name>_runtime/config.properties, the runner at
-# <pkg>/<name>_runner.
+# The runner is the container's own per-container cc_binary (no
+# <name>_runner copy action): the test derives its path from the container
+# name + the config rootpath: config sits at <pkg>/<name>_runtime/config.properties,
+# the runner at <pkg>/<name>_runner (the cc_binary output basename).
 py_test(
     name = "runner_smoke_test",
     timeout = "moderate",
@@ -239,6 +239,27 @@ py_test(
     data = [
         "//tests/testdata:test_container_runner_fixture",
         "//tests/testdata:test_container_runner_fixture_config",
+    ],
+    main = "runner_smoke_test.py",
+)
+
+# Plumbing proof for the per-container runner: the same runner smoke test
+# against a fixture whose celix_container call spells framework_package =
+# "@rules_celix//third_party/celix" out explicitly. This proves the macro's
+# framework_package pass-down reaches the runner cc_binary link and the config
+# rule's uniformity check with an explicitly spelled (canonical) value, and
+# that bazel run still boots the container.
+py_test(
+    name = "runner_smoke_framework_explicit_test",
+    timeout = "moderate",
+    srcs = ["runner_smoke_test.py"],
+    args = [
+        "$(rootpath //tests/testdata:test_container_runner_fixture_framework_explicit_config)",
+        container_runner_file_name("test_container_runner_fixture_framework_explicit"),
+    ],
+    data = [
+        "//tests/testdata:test_container_runner_fixture_framework_explicit",
+        "//tests/testdata:test_container_runner_fixture_framework_explicit_config",
     ],
     main = "runner_smoke_test.py",
 )

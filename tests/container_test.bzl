@@ -75,9 +75,10 @@ _format_config_start_levels_golden_test = unittest.make(_format_config_start_lev
 def _test_container_provider(name):
     """Verify a container exposes CelixContainerInfo with runner/config and ordered bundle copies.
 
-    The runner is a copy of the shared @rules_celix//tools:container_runner
-    binary (built once per repo, not compiled per container), declared in the
-    package dir as <name>_runner.
+    The runner is the container's own per-container runner cc_binary, built in
+    the consumer package and linked against the container's framework package,
+    with output at <name>_runner (basename unchanged from the shared-binary
+    copy days).
     """
 
     def _impl(env, target):
@@ -186,6 +187,37 @@ def _test_container_duplicate_symbolic_name_fails(name):
         bundles = {
             0: ["//tests/testdata:test_bundle", "//tests/testdata:test_bundle_dup"],
         },
+        tags = ["manual"],
+    )
+
+    analysis_test(
+        name = name,
+        target = name + "_subject",
+        impl = _impl,
+        expect_failure = True,
+    )
+
+def _test_container_mixed_framework_fails(name):
+    """Verify a container with bundles from different framework packages fails.
+
+    The container runner is linked against the container's framework_package
+    (canonical default here). :test_bundle uses the canonical default
+    framework while :test_bundle_fake_fw uses the in-repo fake framework
+    package, so the analysis-time uniformity check must reject the container:
+    bundles must all share one framework instance with the runner.
+    """
+
+    def _impl(env, target):
+        env.expect.that_target(target).failures().contains_predicate(
+            matching.contains("framework"),
+        )
+
+    celix_container(
+        name = name + "_subject",
+        bundles = {
+            0: ["//tests/testdata:test_bundle"],
+        },
+        install_only = ["//tests/testdata:test_bundle_fake_fw"],
         tags = ["manual"],
     )
 
@@ -462,6 +494,7 @@ def celix_container_analysis_test_suite(name):
     )
     _test_container_provider(name = name + "_provider")
     _test_container_renamed(name = name + "_renamed")
+    _test_container_mixed_framework_fails(name = name + "_mixed_framework_fails")
     _test_container_non_bundle_fails(name = name + "_non_bundle_fails")
     _test_container_duplicate_symbolic_name_fails(name = name + "_duplicate_symbolic_name_fails")
     _test_container_install_only(name = name + "_install_only")

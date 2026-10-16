@@ -15,15 +15,15 @@
 """Distributable tarball step for celix_container (issue #10).
 
 The runfiles rule materializes the container's runtime layout as individual
-generated files (config.properties, bundle zips, the runner copy) under
-`<name>_runtime/` in the package dir.  This module packages exactly those
+generated files (config.properties, bundle zips) plus the runner cc_binary
+under `<name>_runtime/` in the package dir.  This module packages exactly those
 files — plus the container's start script — into a deterministic `<name>.tgz`
 whose extraction tree mirrors the `bazel run` layout:
 
     <name>.tgz
     └── <name>/
         ├── start.sh                # content copy of <name>_start
-        ├── <name>_runner           # the runner copy (executable)
+        ├── <name>_runner           # the runner cc_binary (executable)
         └── <name>_runtime/
             ├── config.properties
             └── bundles/<symbolic_name>.zip

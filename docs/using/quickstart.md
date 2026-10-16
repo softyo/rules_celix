@@ -22,7 +22,7 @@ The only thing you need to provide yourself:
 Two exceptions apply:
 
 - The **runnable container** (`celix_container`) needs no consumer-side `@celix` at all.
-  Its runner is built once inside rules_celix with the framework embedded and copied into the container.
+  Its runner is built per container in the consumer package from `@rules_celix//tools:container_runner.c`, linked against the container's framework package (default `@rules_celix//third_party/celix`, which the ruleset ships).
 - For bundle-activator consumers who want the same bundled framework, `@rules_celix//third_party/celix:framework` aliases `@celix//:framework`.
   See the `celix_deps` extension block in `MODULE.bazel` / `third_party/celix/upstream.bzl`.
   Users supplying their own `@celix` continue to pass `@celix//:framework` directly.

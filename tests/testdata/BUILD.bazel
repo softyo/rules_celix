@@ -105,6 +105,18 @@ celix_bundle(
     version = "1.2.3",
 )
 
+# A bundle whose CelixBundleInfo.framework is the in-repo fake framework
+# package (via celix_v3_fake_fw), used by the container mixed-framework
+# failure test: its framework differs from the container runner's canonical
+# default, so a container with both :test_bundle and this bundle must fail the
+# analysis-time uniformity check.
+celix_bundle(
+    name = "test_bundle_fake_fw",
+    activator = ":dummy_lib",
+    celix = ":celix_v3_fake_fw",
+    symbolic_name = "com.example.test_fake_fw",
+)
+
 celix_bundle(
     name = "test_bundle_full",
     activator = ":dummy_lib",
@@ -191,6 +203,23 @@ celix_container(
 # CELIX_AUTO_INSTALL path end-to-end.
 celix_container(
     name = "test_container_runner_fixture",
+    install_only = [
+        ":test_bundle",
+        ":test_bundle_no_activator",
+    ],
+    tags = ["manual"],
+    visibility = ["//tests:__subpackages__"],
+)
+
+# Plumbing proof for the per-container runner: a container whose bundles use
+# the canonical framework package spelled out explicitly (the fixtures above
+# use the canonical default) with framework_package explicitly set to the same
+# value, so the runner links the canonical framework_static archive and the
+# analysis-time uniformity check (bundles' framework == runner framework)
+# passes. Bazel run behavior is exercised by the smoke-style integration test.
+celix_container(
+    name = "test_container_runner_fixture_framework_explicit",
+    framework_package = "@rules_celix//third_party/celix",
     install_only = [
         ":test_bundle",
         ":test_bundle_no_activator",

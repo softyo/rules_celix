@@ -64,6 +64,7 @@ bzl_library(
         "//celix/internal:container_bzl",
         "//celix/internal:container_impl_bzl",
         "//celix/internal:container_tar_bzl",
+        "//celix/internal:rules_cc_defs_bzl",
         "@bazel_skylib//rules:write_file",
     ],
 )

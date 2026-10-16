@@ -1,7 +1,7 @@
 # hello_container (runnable Celix container example)
 
 This example assembles the C and C++ hello bundles (`//examples/hello_c:hello_bundle` and `//examples/hello_cxx:hello_bundle`) into one **runnable** Celix container.
-The `celix_container` macro emits a copy of the shared runner binary (`@rules_celix//tools:container_runner`, built once in the rules_celix repository with the framework embedded).
+The `celix_container` macro emits a per-container runner `cc_binary` (built in the consumer package from `@rules_celix//tools:container_runner.c` and linked against the container's framework package).
 It also emits the generated `config.properties`, the copied bundle zips, and a launcher.
 With `bazel run`, the real Celix framework boots against the container layout without any consumer-side `@celix`.
 
@@ -12,7 +12,7 @@ With `bazel run`, the real Celix framework boots against the container layout wi
 ```
 <package>/
 ├── hello_container                          # launcher (executed by bazel run)
-├── hello_container_runner                   # copy of the shared runner (embeds the Celix framework)
+├── hello_container_runner                   # per-container runner cc_binary (embeds the Celix framework)
 └── hello_container_runtime/                 # the container's runtime directory
     ├── config.properties                    # generated framework configuration
     └── bundles/
@@ -79,7 +79,7 @@ Edit a copy of the config, and relaunch the runner with the directory as its arg
 # in another shell:  echo STOP_RUNNER=1 >> /path/to/container_runtime/config.properties
 ```
 
-The runner copy is a real file, so this works unchanged from a copied tree.
+The runner is a real file, so this works unchanged from a copied tree.
 
 ## start.sh
 

@@ -81,6 +81,9 @@ def main():
     if not os.path.isdir(runtime_dir):
         fail("Runtime directory not found: %s" % runtime_dir)
 
+    # The per-container runner cc_binary output lands in the package dir next
+    # to the container's runtime directory, exactly like the smoke test
+    # derives it.
     runner = os.path.join(
         os.path.dirname(os.path.dirname(config_path)),
         runner_filename,

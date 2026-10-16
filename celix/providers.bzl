@@ -43,9 +43,10 @@ CelixBundleInfo = provider(
 CelixContainerInfo = provider(
     doc = "Metadata about a Celix container assembled from celix_bundle targets.",
     fields = {
-        "runner": "File: the per-container runner executable (a copy of the " +
-                  "shared @rules_celix//tools:container_runner cc_binary, which " +
-                  "embeds the Celix framework).",
+        "runner": "File: the container's own runner cc_binary, built in the " +
+                  "consumer package and linked against the container's " +
+                  "framework package (the per-container <name>_runner " +
+                  "emitted by the celix_container macro).",
         "bundles": "list of File: the container's bundle zips under bundles/, " +
                    "flattened in start order: start-level bundles (in the " +
                    "celix_container bundles dict declaration order) followed by " +

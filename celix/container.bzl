@@ -17,17 +17,19 @@
 Lays each bundle zip out at `bundles/<symbolic_name>.zip`, generates the
 framework `config.properties` (with `CELIX_AUTO_START_<level>` /
 `CELIX_AUTO_INSTALL` keys so the framework auto-starts the bundles in Karaf
-style), and wires everything so `bazel run` boots the embedded Celix framework
-from the generated configuration.
+style), and wires everything so `bazel run` boots the Celix framework from the
+generated configuration.
 
 The macro generates these targets:
 
+- `:<name>_runner` — the container's own runner `cc_binary`, built in the
+  consumer package from `@rules_celix//tools:container_runner.c` and linked
+  against the container's framework package (`framework_package`'s
+  `:framework_static` target) with `--export-dynamic` so dlopened bundles'
+  `celix_*` symbols bind against this single framework instance at run time.
 - `:<name>` — the runnable container: `DefaultInfo(executable = <launcher>, ...)`
-  whose runfiles carry a copy of the shared runner binary (`@rules_celix//tools:container_runner`),
-  `config.properties`, and the bundle zips.  The runner is built once in the
-  rules_celix repository (where `@celix` resolves and the framework is embedded)
-  and copied into the package dir as `<name>_runner` by the rule, so the
-  container needs no consumer-side `@celix`.
+  whose runfiles carry that per-container runner `cc_binary`, the generated
+  `config.properties`, and the bundle zips.
   `bazel run //path:<name>` boots the framework; see `tools/container_runner.c`
   and the integration smoke test for the stop protocol.
 - `:<name>_config` — the generated `config.properties` (a text file under the
@@ -83,9 +85,15 @@ runner embeds and exports. A C++ bundle built with `framework = "static"`
 analysis time if listed in `bundles` (start levels); move it to `install_only`
 or set `framework = "runtime"`. C bundles are unaffected — static mode keeps
 working because plain C symbols do not duplicate C++ program state.
+
+The container's runner framework is `framework_package` (default
+`@rules_celix//third_party/celix`). Every bundle's framework must match it and
+each other: the config rule enforces the uniformity at analysis time, so all
+bundles and the runner share one framework instance.
 """
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc:defs.bzl", _cc_binary = "cc_binary")
 load("//celix/internal:container.bzl", "container_runner_file_name", "container_runtime_dir")
 load(
     "//celix/internal:container_impl.bzl",
@@ -94,7 +102,7 @@ load(
 )
 load("//celix/internal:container_tar.bzl", _celix_container_tarball = "celix_container_tarball")
 
-def celix_container(name, bundles = {}, install_only = [], tarball = True, **kwargs):
+def celix_container(name, bundles = {}, install_only = [], tarball = True, framework_package = None, **kwargs):
     """Macro that assembles a runnable Celix container from level-ordered Celix bundles.
 
     Args:
@@ -117,6 +125,16 @@ def celix_container(name, bundles = {}, install_only = [], tarball = True, **kwa
             `:<name>_tarball` / `<name>.tgz` target (default True).  Set
             `tarball = False` to skip the tarball step when only `bazel run`
             is needed (no rules_pkg dependency is pulled in).
+        framework_package (str): Package label string (repo name, optionally
+            followed by a package path) of the Celix framework package the
+            runner links against.  The referenced package must expose
+            `:framework` (headers-only) and `:framework_static` (full static
+            archive).  Defaults to None, meaning
+            `@rules_celix//third_party/celix`.  Every bundle in the container
+            must link against the same framework package, which the config
+            rule's uniformity check enforces at analysis time: use the same
+            value here as the bundles' `framework_package` / `celix` runtime's
+            `framework`.
         **kwargs: Additional attributes forwarded to the generated rules.
     """
     if type(bundles) != "dict":
@@ -124,6 +142,12 @@ def celix_container(name, bundles = {}, install_only = [], tarball = True, **kwa
             "celix_container: 'bundles' must be a dict {int level 0..6: [labels]}; " +
             "got a like-list — use install_only=[] for install-only bundles.",
         )
+
+    # The macro cannot read providers, so the runner's framework package is an
+    # explicit parameter (defaulting to the canonical package) used for the
+    # runner's link and passed to the config rule, which compares every
+    # bundle's framework against it at analysis time.
+    runner_framework_label = framework_package if framework_package != None else "@rules_celix//third_party/celix"
 
     # Flatten start-level bundles into declaration order, rejecting a label
     # listed under two different levels (silent last-wins is forbidden).
@@ -157,11 +181,38 @@ def celix_container(name, bundles = {}, install_only = [], tarball = True, **kwa
     _start_sh_src = name + "_start"
     _runner_name = container_runner_file_name(name)
 
+    # The container's own runner, built per container in the consumer package
+    # from the shared (framework-agnostic) source and linked against the
+    # container's framework package.  Only a select set of kwargs makes sense
+    # for a cc_binary; forward the safe cc-agnostic subset (a caller-supplied
+    # visibility wins over the public default), then pass the remaining kwargs
+    # to the rule targets below (which reject cc-only attrs).
+    _cc_binary_kwargs = {
+        "visibility": ["//visibility:public"],
+    }
+    if "testonly" in kwargs:
+        _cc_binary_kwargs["testonly"] = kwargs["testonly"]
+    if "tags" in kwargs:
+        _cc_binary_kwargs["tags"] = kwargs["tags"]
+    if "visibility" in kwargs:
+        _cc_binary_kwargs["visibility"] = kwargs["visibility"]
+    _cc_binary(
+        name = _runner_name,
+        srcs = ["@rules_celix//tools:container_runner.c"],
+        deps = ["%s:framework_static" % runner_framework_label],
+        linkopts = select({
+            "@platforms//os:macos": ["-Wl,-export_dynamic"],
+            "//conditions:default": ["-Wl,--export-dynamic"],
+        }),
+        **_cc_binary_kwargs
+    )
+
     _celix_container_config_impl(
         name = _config_name,
         bundle_levels = bundle_levels,
         install_only = install_only,
         container_name = name,
+        framework = runner_framework_label,
         **kwargs
     )
 
@@ -182,6 +233,7 @@ def celix_container(name, bundles = {}, install_only = [], tarball = True, **kwa
         name = name,
         bundles = bundles_list,
         runner_config = ":" + _config_name,
+        runner = ":" + _runner_name,
         **kwargs
     )
 

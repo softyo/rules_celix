@@ -31,7 +31,7 @@ rules_celix/
 │   └── zlib/                 # zlib BUILD overlay
 ├── examples/                 # runnable, tested samples (hello_c, hello_cxx, hello_container)
 ├── tests/                    # analysistest + integration tests (tests/integration/)
-├── tools/                    # hermetic helper binaries (celix_zip.py packaging tool, container_runner.c, file_copy.py)
+├── tools/                    # hermetic helper binaries (celix_zip.py packaging tool, container_runner.c source)
 ├── docs/                     # consumer docs (using/) + contributor docs (developing/) — index in docs/README.md
 └── .bcr/                     # BCR submission templates (metadata, source, presubmit)
 ```
@@ -49,7 +49,7 @@ These come from `AGENTS.md` and should not be violated lightly:
 4. **Celix is a peer, not a dependency of the ruleset**: users supply Celix headers/libraries.
    The ruleset only produces the bundle artifact.
    The one exception is the runnable `celix_container`.
-   Its runner is built inside rules_celix with the framework compiled in.
+   Its runner is built inside the consumer package (per container) with the framework compiled in.
    The container is the one place the ruleset ships the framework, kept behind `@rules_celix//third_party/celix:framework`.
 5. **Deterministic output**: same inputs → bit-identical (or at least semantically identical) zip.
    `META-INF/MANIFEST.MF` must be the first entry.
@@ -86,10 +86,10 @@ The framework and its native prerequisites are fetched and built hermetically:
   These are provided by the miniature checked-in library in [`third_party/celix/uuid`](../../third_party/celix/uuid) instead of a system libuuid.
 
 Celix 2.4.0 is the latest 2.x release.
-The manifest contract and the pinned framework binaries are two independent axes:
-`celix_runtime(celix_version = ...)` is the manifest-contract knob (properties < 3.0.0, JSON >= 3.0.0), while the framework binaries that the convenience macros link and the container runner embeds stay pinned to 2.4.0.
+The manifest contract and the framework binaries are two independent axes:
+`celix_runtime(celix_version = ...)` is the manifest-contract knob (properties < 3.0.0, JSON >= 3.0.0), while the framework binaries the convenience macros link and the container runner links (via `framework_package`, default `@rules_celix//third_party/celix`) default to the pinned 2.4.0.
 A 3.x pin of the framework would both switch the default manifest format to JSON and require changing `//celix:default_runtime`, which is out of scope.
-Pinning the framework is the one place the ruleset *does* ship Celix.
+The default pin is the one place the ruleset *does* ship Celix; a different framework is selected by explicit `framework_package` labels (the container and every bundle must then agree).
 See `docs/using/bundles.md` for the user-facing Celix 2.x vs 3.x story.
 
 ## Manifest generation
@@ -170,10 +170,10 @@ C bundles are unaffected.
 
 The container runner (`tools/container_runner.c`) is deliberate and minimal:
 
-- It is a **single shared** `cc_binary` built once in the rules_celix repository.
-  `@celix` resolves and the framework is embedded there.
-  It is copied per container by a hermetic `//tools:file_copy` action into the package dir as `<name>_runner`.
-  This keeps `celix_container` free of consumer-side `@celix` and guarantees one framework instance per process.
+- It is a per-container `cc_binary` emitted by the `celix_container` macro in the consumer package.
+  The macro compiles `tools/container_runner.c` against the container's `<framework_package>:framework_static` (default package `@rules_celix//third_party/celix`, whose `:framework_static` alias resolves `@celix//:framework_static`) and exports it with `--export-dynamic`.
+  The output is `<name>_runner` in the package dir, consumed directly by the runfiles rule (no file copy).
+  Every bundle's framework must match the runner's framework package (`Label`-normalized comparison, enforced at analysis time in the config rule), which guarantees one framework instance per process.
 - The generated launcher passes the runtime directory `<name>_runtime/` as `argv[1]`.
   The runner chdirs into it, so the process working directory *is* the container directory.
   All relative paths (`CELIX_BUNDLES_PATH=bundles`, the framework cache, …) resolve against it.
@@ -187,7 +187,7 @@ The container runner (`tools/container_runner.c`) is deliberate and minimal:
   A missing config file also counts as a stop request, so a torn-down runfiles tree cannot wedge `bazel run`.
 
 Container outputs are **real files, not symlinks**, nested under the package-relative runtime directory `<name>_runtime/` (see `celix/internal/container.bzl`).
-They are deterministic byte copies of the bundle zips (via `celix_zip.py --copy`) plus the copied runner binary.
+They are deterministic byte copies of the bundle zips (via `celix_zip.py --copy`) plus the built runner binary.
 Real files keep the tree copyable verbatim next to a Celix executable and safe to place inside a tarball.
 Each bundle is laid out at `bundles/<symbolic_name>.zip`, keyed by the stable `Bundle-SymbolicName`.
 The symbolic name must be a safe single path component without `/`, `\`, `.`, `..`, or spaces.
@@ -197,7 +197,8 @@ Duplicate symbolic names are rejected at analysis.
 ### Determinism
 
 - Bundle zips: fixed ZIP epoch (1980-01-01), manifest first.
-- Container copies: verbatim bytes, so determinism is inherited from the source bundle.
+- Container bundle copies: verbatim bytes, so determinism is inherited from the source bundle.
+- Runner: a per-container `cc_binary`, so determinism comes from the consumer's framework package and `container_runner.c` (bit-identical for identical inputs).
 - `config.properties`: deterministic static keys, then ascending `CELIX_AUTO_START_<level>` lines.
   Only non-empty levels are emitted.
   `CELIX_AUTO_START_0` is omitted when empty.

@@ -18,15 +18,10 @@ load("//celix:providers.bzl", "CelixBundleInfo", "CelixContainerInfo")
 load(
     "//celix/internal:container.bzl",
     "bundle_zip_archive_path",
-    "container_runner_file_name",
     "container_runtime_dir",
     "format_config_properties",
     "validate_autostart_level",
 )
-
-# The single shared runner binary, built once in rules_celix's repo (where
-# @celix resolves) and copied into every container by the rule below.
-_RUNNER_LABEL = "@rules_celix//tools:container_runner"
 
 def _container_dir(ctx):
     """Return the container's runtime directory (package-relative, no trailing slash).
@@ -39,6 +34,16 @@ def _container_dir(ctx):
     """
     return container_runtime_dir(ctx.label.name)
 
+def _normalize_framework(s):
+    """Return the canonical label string for a framework package string.
+
+    Framework packages are compared as labels (`repo + package`), not verbatim
+    strings, so equivalent spellings of the same package (e.g.
+    `@rules_celix//third_party/celix` vs `//third_party/celix` in-repo) count
+    as the same framework.
+    """
+    return str(Label(s))
+
 def _celix_container_config_impl_fn(ctx):
     """Generate the container's `config.properties` from provider data.
 
@@ -49,10 +54,20 @@ def _celix_container_config_impl_fn(ctx):
     level in ascending order and `CELIX_AUTO_INSTALL` for the surviving
     `install_only` bundles, and writes the file at
     `<container_name>_runtime/config.properties`.
+
+    This is also the analysis-time place with every bundle in scope, so the
+    per-framework uniformity check lives here: every bundle's framework must
+    be the same, and must equal the runner's framework (the container's
+    `framework` attr).  Together that guarantees the container and its bundles
+    share one framework instance (issue #13 / one-framework-per-process).
     """
+    runner_framework = _normalize_framework(ctx.attr.framework)
+
     level_labels = {str(target.label): True for target in ctx.attr.bundle_levels.keys()}
     seen = {}
     label_by_sym = {}
+    first_framework = [None]
+    first_framework_label = [None]
 
     def _collect(target):
         info = target[CelixBundleInfo]
@@ -64,6 +79,35 @@ def _celix_container_config_impl_fn(ctx):
             )
         seen[sym_name] = str(target.label)
         label_by_sym[str(target.label)] = info
+        target_framework = _normalize_framework(info.framework)
+        if first_framework[0] == None:
+            first_framework[0] = target_framework
+            first_framework_label[0] = str(target.label)
+        elif target_framework != first_framework[0]:
+            fail(
+                "celix_container: bundle '%s' uses framework package '%s', but " % (
+                    target.label,
+                    info.framework,
+                ) +
+                "bundle '%s' uses '%s' in '%s'. All bundles of a container " % (
+                    first_framework_label[0],
+                    first_framework[0],
+                    ctx.label,
+                ) +
+                "must share one framework instance.",
+            )
+        if target_framework != runner_framework:
+            fail(
+                "celix_container: bundle '%s' uses framework package '%s', but " % (
+                    target.label,
+                    info.framework,
+                ) +
+                "the container's runner uses '%s' in '%s'. All bundles of a " % (
+                    ctx.attr.framework,
+                    ctx.label,
+                ) +
+                "container must share one framework instance with the runner.",
+            )
 
     autostart_levels = {}
     for target, level_str in ctx.attr.bundle_levels.items():
@@ -134,15 +178,16 @@ def _celix_container_runfiles_impl_fn(ctx):
     celix_zip --copy tool (bytes preserved verbatim, so determinism is
     inherited from the bundle zips).
 
-    The shared runner binary (building once per repo, not per container) is
-    copied into the package dir as `<name>_runner`. The target is executable:
-    it declares a small launcher script (the rule's own output, written by
+    The container's own runner `cc_binary` (a per-container build emitted by
+    the macro, linked against the container's framework package, output at
+    `<name>_runner`) is consumed directly. The target is executable: it
+    declares a small launcher script (the rule's own output, written by
     `ctx.actions.write`) that `cd`s to the container's package dir and then
-    execs the copied runner with the container's directory as argument, so the
-    runner boots the embedded Celix framework from the generated
-    `config.properties` and finds `bundles/` relative to it.  The runfiles
-    carry the runner copy, the config, and every bundle zip so the whole set is
-    built and materialized by a single `bazel run //path:name`.
+    execs the runner with the container's directory as argument, so the runner
+    boots the embedded Celix framework from the generated `config.properties`
+    and finds `bundles/` relative to it.  The runfiles carry the runner, the
+    config, and every bundle zip so the whole set is built and materialized by
+    a single `bazel run //path:name`.
     """
     copies = []
     outputs = []
@@ -179,24 +224,16 @@ def _celix_container_runfiles_impl_fn(ctx):
 
     config = ctx.file.runner_config
 
-    # Copy the shared runner binary into this container's package dir so the
-    # runtime tree is self-contained (the launcher, runfiles, and CelixContainerInfo
-    # all reference this copy).  A dedicated hermetic tool is used instead of
-    # `cp` in run_shell or `celix_zip --copy`: the latter validates bundle zips
-    # (the runner is a plain ELF binary) and shell copies depend on host PATH.
-    runner = ctx.actions.declare_file(container_runner_file_name(ctx.label.name))
-    ctx.actions.run(
-        outputs = [runner],
-        inputs = [ctx.file._runner],
-        executable = ctx.executable._copy_tool,
-        arguments = [ctx.file._runner.path, runner.path],
-        mnemonic = "CelixContainerCopyRunner",
-        progress_message = "Copying container runner %{output}",
-    )
+    # The runner is the generated per-container cc_binary's output itself (no
+    # copy action): the macro builds `:<name>_runner` in the consumer package,
+    # linked against the container's framework package, and the rule consumes
+    # that binary's executable File directly. Its basename is exactly
+    # `<name>_runner`, which the launcher and tarball rely on.
+    runner = ctx.attr.runner[DefaultInfo].files_to_run.executable
 
     # The runfiles rule is executable.  Since DefaultInfo(executable = ...)
     # must be a file produced by this rule, we generate a tiny launcher script
-    # that cd's to the package dir (where the runner copy, config.properties
+    # that cd's to the package dir (where the runner, config.properties
     # and bundles/ live as real files under `bazel run`) and execs the runner,
     # passing the container directory so the runner resolves config.properties
     # and bundles/ against it.
@@ -252,6 +289,13 @@ _celix_container_config_rule = rule(
                   "the <name>_runtime output path (this rule's own label is " +
                   "<name>_config).",
         ),
+        "framework": attr.string(
+            mandatory = True,
+            doc = "Internal: the framework package the container's runner links " +
+                  "against (canonical label string, defaulted by the macro via " +
+                  "framework_package). The analysis-time uniformity check " +
+                  "asserts every bundle's framework matches this value.",
+        ),
     },
     doc = "Generates the container's config.properties from CelixBundleInfo, " +
           "emitting CELIX_AUTO_START_<level> for every non-empty start level " +
@@ -278,20 +322,17 @@ _celix_container_runfiles_rule = rule(
                   "bundles/<symbolic_name>.zip under the container directory, " +
                   "preserving this order.",
         ),
-        "_copy_tool": attr.label(
-            cfg = "exec",
-            default = "//tools:file_copy",
+        "runner": attr.label(
+            cfg = "target",
             executable = True,
-            doc = "Internal: hermetic byte-copy tool for the runner copy.",
-        ),
-        "_runner": attr.label(
-            allow_single_file = True,
-            default = _RUNNER_LABEL,
-            doc = "Internal: the shared container runner binary (built once in " +
-                  "rules_celix's repo, embedding the Celix framework) which the " +
-                  "rule copies into the package dir as <name>_runner.  Target " +
-                  "config (no cfg), matching the host-built binary; `bazel run` " +
-                  "requires host==target.",
+            mandatory = True,
+            doc = "Internal: the container's own runner cc_binary " +
+                  "(<name>_runner, emitted by the celix_container macro in " +
+                  "the consumer package and linked against the container's " +
+                  "framework package). Its executable output is the runner " +
+                  "File the runfiles, launcher, and CelixContainerInfo use. " +
+                  "Target config: the runner must run on the target platform, " +
+                  "which equals the host under `bazel run`.",
         ),
         "runner_config": attr.label(
             allow_single_file = True,
@@ -302,9 +343,10 @@ _celix_container_runfiles_rule = rule(
     doc = "Assembles a runnable Celix container from celix_bundle targets.  " +
           "Produces each bundle zip as a real standalone file under " +
           "bundles/<symbolic_name>.zip (deterministic byte copies, not symlinks) " +
-          "and wires a launcher + runfiles so `bazel run` starts the embedded " +
-          "Celix framework using the generated config.properties, which " +
-          "auto-starts the bundles by level (CELIX_AUTO_START_*).",
+          "and wires a launcher + runfiles so `bazel run` starts the container's " +
+          "own runner (the per-container cc_binary emitted by the macro) with " +
+          "the generated config.properties, which auto-starts the bundles by " +
+          "level (CELIX_AUTO_START_*).",
 )
 
 # Exported for the macro in celix/container.bzl

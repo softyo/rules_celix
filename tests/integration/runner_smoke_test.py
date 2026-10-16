@@ -26,11 +26,12 @@ temp dir and mutates the copy.  This is the same configuration-path contract the
 plan specifies (the runner re-checks the loaded config path on a timer), and it
 keeps the test hermetic and deterministic: no kill timers, no races.
 
-The runner copy is rule-internal (a copy of the shared
-@rules_celix//tools:container_runner binary), so its path is derived from the
+The runner is the container's own per-container runner cc_binary (built by the
+celix_container macro in the consumer package and linked against the
+container's framework package), so its path is derived from the
 config rootpath (config sits at <pkg>/<name>_runtime/config.properties, the
 runner at <pkg>/<name>_runner); the runner filename is passed as an argument,
-sourced from the same celix/internal/container.bzl helper the rule uses, so a
+sourced from the same celix/internal/container.bzl helper the macro uses, so a
 rename is caught by the test.
 """
 
@@ -99,9 +100,10 @@ def main():
     if not os.path.isdir(runtime_dir):
         fail("Runtime directory not found: %s" % runtime_dir)
 
-    # The runner copy lands in the package dir next to the container's runtime
-    # directory: config rootpath is <pkg>/<name>_runtime/config.properties, so
-    # the runner is <pkg>/<runner_filename>.
+    # The runner cc_binary output lands in the package dir next to the
+    # container's runtime directory: config rootpath is
+    # <pkg>/<name>_runtime/config.properties, so the runner is
+    # <pkg>/<runner_filename>.
     runner = os.path.join(
         os.path.dirname(os.path.dirname(config_path)),
         runner_filename,
